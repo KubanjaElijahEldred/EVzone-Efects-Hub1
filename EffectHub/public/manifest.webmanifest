@@ -1,0 +1,9 @@
+{
+  "name": "EVzone Effect Hub",
+  "short_name": "Effect Hub",
+  "description": "Premium EVzone AR/effect creator platform for EVzone Live Studio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f2f2f2",
+  "theme_color": "#03cd8c"
+}

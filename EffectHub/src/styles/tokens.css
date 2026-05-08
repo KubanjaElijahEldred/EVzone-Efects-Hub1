@@ -1,0 +1,12 @@
+:root {
+  --evz-green: #03cd8c;
+  --evz-orange: #f77f00;
+  --evz-medium: #a6a6a6;
+  --evz-light: #f2f2f2;
+  --evz-ink: #0f172a;
+  --evz-muted: #667085;
+  --evz-line: rgba(148, 163, 184, 0.22);
+  --evz-soft-line: rgba(148, 163, 184, 0.14);
+  --evz-surface: rgba(255, 255, 255, 0.9);
+  --evz-gradient: linear-gradient(135deg, var(--evz-green), var(--evz-orange));
+}

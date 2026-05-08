@@ -1,0 +1,764 @@
+@import './tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --evz-green: #03cd8c;
+  --evz-orange: #f77f00;
+  --evz-medium: #a6a6a6;
+  --evz-light: #f2f2f2;
+  --evz-ink: #0f172a;
+  --evz-muted: #667085;
+  --evz-line: rgba(148, 163, 184, 0.22);
+  --evz-soft-line: rgba(148, 163, 184, 0.14);
+  --evz-shell-a: rgba(3,205,140,0.13);
+  --evz-shell-b: rgba(247,127,0,0.13);
+  --evz-app-bg: #f2f2f2;
+  --evz-glass-bg: rgba(255, 255, 255, 0.90);
+  --app-evz-light: #f2f2f2;
+  --app-evz-ink: #0f172a;
+  --app-evz-muted: #667085;
+  --app-evz-ink-2: #283033;
+  --app-evz-muted-2: #899196;
+  --app-evz-line: rgba(148, 163, 184, 0.22);
+  --app-evz-soft-line: rgba(148, 163, 184, 0.14);
+  --app-evz-border: rgba(148, 163, 184, 0.22);
+  --app-evz-border-strong: rgba(148, 163, 184, 0.34);
+  --app-evz-card: rgba(255, 255, 255, 0.90);
+  --app-evz-card-solid: #ffffff;
+  --app-evz-glass: rgba(255, 255, 255, 0.90);
+  --app-evz-shadow: 0 28px 80px rgba(15, 23, 42, 0.12);
+  --app-evz-shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.09);
+  --evz-border: var(--app-evz-border);
+  --evz-border-strong: var(--app-evz-border-strong);
+  --evz-card: var(--app-evz-card);
+  --evz-card-solid: var(--app-evz-card-solid);
+  --white-glass: var(--app-evz-glass);
+  --ev-light: var(--app-evz-light);
+  --ev-ink: var(--app-evz-ink);
+  --ev-muted: var(--app-evz-muted);
+  --ev-border: var(--app-evz-border);
+  --ev-border-strong: var(--app-evz-border-strong);
+  --ev-card: var(--app-evz-card);
+  --ev-card-strong: var(--app-evz-card-solid);
+  --evz-warning-surface: color-mix(in srgb, var(--evz-card-solid) 76%, rgba(247, 127, 0, 0.24));
+  --evz-frost-strong: color-mix(in srgb, var(--evz-card-solid) 70%, rgba(255, 255, 255, 0.62));
+  --evz-frost-soft: color-mix(in srgb, var(--evz-card-solid) 78%, rgba(255, 255, 255, 0.78));
+  --evz-space-1: 4px;
+  --evz-space-2: 8px;
+  --evz-space-3: 12px;
+  --evz-space-4: 16px;
+  --evz-space-5: 20px;
+  --evz-space-6: 24px;
+  --evz-space-7: 28px;
+  --evz-space-8: 32px;
+  --evz-radius-sm: 12px;
+  --evz-radius-md: 16px;
+  --evz-radius-lg: 20px;
+  --evz-radius-xl: 28px;
+  --evz-topbar-title-size: 22px;
+  --evz-topbar-icon-size: 42px;
+  color-scheme: light;
+}
+
+[data-evz-theme='dark'] {
+  --evz-ink: #e5edf9;
+  --evz-ink-2: #cad7ea;
+  --evz-muted: #a8b6ca;
+  --evz-line: rgba(116, 145, 184, 0.34);
+  --evz-soft-line: rgba(116, 145, 184, 0.24);
+  --evz-border: rgba(116, 145, 184, 0.34);
+  --evz-border-strong: rgba(116, 145, 184, 0.44);
+  --evz-light: #0e1a2f;
+  --ev-light: #0e1a2f;
+  --evz-card: rgba(21, 37, 62, 0.88);
+  --evz-card-solid: #172a45;
+  --white-glass: rgba(21, 37, 62, 0.90);
+  --ev-card: rgba(21, 37, 62, 0.88);
+  --ev-card-strong: #172a45;
+  --evz-shadow: 0 28px 80px rgba(3, 8, 16, 0.52);
+  --evz-shadow-soft: 0 18px 45px rgba(3, 8, 16, 0.44);
+  --app-evz-light: #0e1a2f;
+  --app-evz-ink: #e5edf9;
+  --app-evz-muted: #a8b6ca;
+  --app-evz-ink-2: #cad7ea;
+  --app-evz-muted-2: #96a7bf;
+  --app-evz-line: rgba(116, 145, 184, 0.34);
+  --app-evz-soft-line: rgba(116, 145, 184, 0.24);
+  --app-evz-border: rgba(116, 145, 184, 0.34);
+  --app-evz-border-strong: rgba(116, 145, 184, 0.44);
+  --app-evz-card: rgba(21, 37, 62, 0.88);
+  --app-evz-card-solid: #172a45;
+  --app-evz-glass: rgba(21, 37, 62, 0.90);
+  --app-evz-shadow: 0 28px 80px rgba(3, 8, 16, 0.52);
+  --app-evz-shadow-soft: 0 18px 45px rgba(3, 8, 16, 0.44);
+  --evz-border: var(--app-evz-border);
+  --evz-border-strong: var(--app-evz-border-strong);
+  --evz-card: var(--app-evz-card);
+  --evz-card-solid: var(--app-evz-card-solid);
+  --white-glass: var(--app-evz-glass);
+  --ev-light: var(--app-evz-light);
+  --ev-ink: var(--app-evz-ink);
+  --ev-muted: var(--app-evz-muted);
+  --ev-border: var(--app-evz-border);
+  --ev-border-strong: var(--app-evz-border-strong);
+  --ev-card: var(--app-evz-card);
+  --ev-card-strong: var(--app-evz-card-solid);
+  --evz-shell-a: rgba(3,205,140,0.14);
+  --evz-shell-b: rgba(247,127,0,0.12);
+  --evz-app-bg: #0b1628;
+  --evz-glass-bg: rgba(21, 37, 62, 0.90);
+  --evz-warning-surface: color-mix(in srgb, var(--evz-card-solid) 84%, rgba(247, 127, 0, 0.22));
+  --evz-frost-strong: color-mix(in srgb, var(--evz-card-solid) 90%, rgba(148, 163, 184, 0.12));
+  --evz-frost-soft: color-mix(in srgb, var(--evz-card-solid) 95%, rgba(148, 163, 184, 0.08));
+  color-scheme: dark;
+}
+
+html[data-evz-theme='dark'],
+body[data-evz-theme='dark'] {
+  --evz-ink: #e5edf9 !important;
+  --evz-ink-2: #cad7ea !important;
+  --evz-muted: #a8b6ca !important;
+  --evz-line: rgba(116, 145, 184, 0.34) !important;
+  --evz-soft-line: rgba(116, 145, 184, 0.24) !important;
+  --evz-border: rgba(116, 145, 184, 0.34) !important;
+  --evz-border-strong: rgba(116, 145, 184, 0.44) !important;
+  --evz-light: #0e1a2f !important;
+  --ev-light: #0e1a2f !important;
+  --evz-card: rgba(21, 37, 62, 0.88) !important;
+  --evz-card-solid: #172a45 !important;
+  --white-glass: rgba(21, 37, 62, 0.90) !important;
+  --ev-card: rgba(21, 37, 62, 0.88) !important;
+  --ev-card-strong: #172a45 !important;
+  --evz-shadow: 0 28px 80px rgba(3, 8, 16, 0.52) !important;
+  --evz-shadow-soft: 0 18px 45px rgba(3, 8, 16, 0.44) !important;
+  --app-evz-light: #0e1a2f !important;
+  --app-evz-ink: #e5edf9 !important;
+  --app-evz-muted: #a8b6ca !important;
+  --app-evz-ink-2: #cad7ea !important;
+  --app-evz-muted-2: #96a7bf !important;
+  --app-evz-line: rgba(116, 145, 184, 0.34) !important;
+  --app-evz-soft-line: rgba(116, 145, 184, 0.24) !important;
+  --app-evz-border: rgba(116, 145, 184, 0.34) !important;
+  --app-evz-border-strong: rgba(116, 145, 184, 0.44) !important;
+  --app-evz-card: rgba(21, 37, 62, 0.88) !important;
+  --app-evz-card-solid: #172a45 !important;
+  --app-evz-glass: rgba(21, 37, 62, 0.90) !important;
+  --app-evz-shadow: 0 28px 80px rgba(3, 8, 16, 0.52) !important;
+  --app-evz-shadow-soft: 0 18px 45px rgba(3, 8, 16, 0.44) !important;
+  --evz-border: var(--app-evz-border) !important;
+  --evz-border-strong: var(--app-evz-border-strong) !important;
+  --evz-card: var(--app-evz-card) !important;
+  --evz-card-solid: var(--app-evz-card-solid) !important;
+  --white-glass: var(--app-evz-glass) !important;
+  --ev-light: var(--app-evz-light) !important;
+  --ev-ink: var(--app-evz-ink) !important;
+  --ev-muted: var(--app-evz-muted) !important;
+  --ev-border: var(--app-evz-border) !important;
+  --ev-border-strong: var(--app-evz-border-strong) !important;
+  --ev-card: var(--app-evz-card) !important;
+  --ev-card-strong: var(--app-evz-card-solid) !important;
+  --evz-app-bg: #0b1628 !important;
+  --evz-glass-bg: rgba(21, 37, 62, 0.90) !important;
+  --evz-warning-surface: color-mix(in srgb, var(--evz-card-solid) 84%, rgba(247, 127, 0, 0.22)) !important;
+  --evz-frost-strong: color-mix(in srgb, var(--evz-card-solid) 90%, rgba(148, 163, 184, 0.12)) !important;
+  --evz-frost-soft: color-mix(in srgb, var(--evz-card-solid) 95%, rgba(148, 163, 184, 0.08)) !important;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--evz-app-bg);
+  color: var(--evz-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.evzone-shell-gradient {
+  background: var(--evz-app-bg);
+}
+
+.evzone-glass {
+  background: var(--evz-glass-bg);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--evz-soft-line);
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.09);
+}
+
+.evzone-page-frame {
+  --evz-page-gutter: 12px;
+  --evz-page-gutter-mobile: 8px;
+  --evz-section-gap: 12px;
+  --evz-card-grid-gap: 12px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.evzone-page-frame > * {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-top: var(--evz-page-gutter) !important;
+  padding-left: var(--evz-page-gutter) !important;
+  padding-right: var(--evz-page-gutter) !important;
+}
+
+.evzone-route-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  background: transparent;
+}
+
+.evzone-route-content > * {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-top: var(--evz-page-gutter) !important;
+  padding-left: var(--evz-page-gutter) !important;
+  padding-right: var(--evz-page-gutter) !important;
+}
+
+.evzone-page-frame > .evzone-route-content {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.evzone-page-frame > .evz-page-design {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.evz-page-design {
+  --design-green: var(--evz-green);
+  --design-orange: var(--evz-orange);
+  --design-ink: color-mix(in srgb, var(--evz-ink) 74%, transparent);
+  --design-paper: color-mix(in srgb, var(--evz-card-solid) 72%, transparent);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+}
+
+.evz-page-design > span {
+  position: absolute;
+  display: block;
+}
+
+.evz-page-design::before,
+.evz-page-design::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  display: block;
+  pointer-events: none;
+}
+
+.evz-design-plane {
+  border: 1px solid color-mix(in srgb, var(--evz-border) 78%, transparent);
+  background: color-mix(in srgb, var(--evz-card-solid) 80%, transparent);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.10);
+}
+
+.evz-design-line {
+  border: 0;
+  opacity: 0.74;
+}
+
+.evz-design-circle {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--evz-border-strong) 70%, transparent);
+  background: color-mix(in srgb, var(--evz-card-solid) 82%, transparent);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+}
+
+.evz-page-design--wave {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--evz-card-solid) 94%, transparent) 0 28%, transparent 28%),
+    radial-gradient(760px 620px at 8% 38%, color-mix(in srgb, var(--design-green) 23%, transparent), transparent 62%),
+    linear-gradient(180deg, #f6f8f7 0%, #eef2f1 100%);
+}
+
+.evz-page-design--wave::before {
+  left: -13%;
+  top: 18%;
+  width: 50%;
+  height: 70%;
+  border-radius: 0 54% 46% 0 / 0 45% 55% 0;
+  background: color-mix(in srgb, var(--design-green) 70%, #6a8f88);
+  transform: skewY(-10deg);
+}
+
+.evz-page-design--wave::after {
+  right: -16%;
+  top: -15%;
+  width: 58%;
+  height: 124%;
+  border-radius: 48%;
+  border-left: 56px solid color-mix(in srgb, var(--design-green) 82%, #0f544d);
+  box-shadow:
+    -26px 0 0 color-mix(in srgb, var(--evz-card-solid) 94%, transparent),
+    -52px 0 0 color-mix(in srgb, var(--design-ink) 54%, #0f544d);
+  transform: rotate(9deg);
+}
+
+.evz-page-design--wave .evz-design-line-a,
+.evz-page-design--wave .evz-design-line-b {
+  right: 12%;
+  top: 8%;
+  width: 34%;
+  height: 106%;
+  border-left: 2px solid color-mix(in srgb, var(--evz-card-solid) 86%, transparent);
+  border-radius: 50%;
+  transform: rotate(8deg);
+}
+
+.evz-page-design--wave .evz-design-line-b {
+  right: 15%;
+  opacity: 0.48;
+}
+
+.evz-page-design--tiles .evz-design-plane {
+  border-radius: 26px;
+  border-color: rgba(255, 255, 255, 0.84);
+  background: color-mix(in srgb, var(--evz-card-solid) 92%, #eef1f2);
+}
+
+.evz-page-design--tiles .evz-design-plane-a {
+  right: 9%;
+  top: 12%;
+  width: clamp(210px, 22vw, 420px);
+  height: clamp(210px, 22vw, 420px);
+}
+
+.evz-page-design--tiles .evz-design-plane-b {
+  left: 3%;
+  top: 38%;
+  width: clamp(230px, 29vw, 520px);
+  height: clamp(180px, 22vw, 390px);
+}
+
+.evz-page-design--tiles .evz-design-plane-c {
+  right: 22%;
+  bottom: 8%;
+  width: clamp(130px, 15vw, 250px);
+  height: clamp(130px, 15vw, 250px);
+}
+
+.evz-page-design--tiles::before,
+.evz-page-design--tiles::after {
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--design-green) 82%, #82c83c);
+  box-shadow:
+    220px 170px 0 color-mix(in srgb, var(--design-green) 58%, transparent),
+    -120px 380px 0 color-mix(in srgb, var(--design-green) 52%, transparent);
+}
+
+.evz-page-design--tiles::before {
+  left: 26%;
+  top: 10%;
+  width: 300px;
+  height: 300px;
+}
+
+.evz-page-design--tiles::after {
+  right: -1%;
+  top: 6%;
+  width: 180px;
+  height: 180px;
+}
+
+.evz-page-design--rings {
+  background:
+    linear-gradient(108deg, color-mix(in srgb, var(--evz-card-solid) 96%, transparent) 0 58%, #0ea5e9 58% 100%),
+    linear-gradient(180deg, #f8fbfc, #eef4f6);
+}
+
+.evz-page-design--rings::before,
+.evz-page-design--rings::after {
+  right: -8%;
+  top: -10%;
+  width: 46%;
+  height: 120%;
+  border-radius: 50%;
+  border-left: 18px solid color-mix(in srgb, #0284c7 72%, transparent);
+  box-shadow: -18px 0 0 color-mix(in srgb, var(--evz-card-solid) 84%, transparent);
+  transform: rotate(5deg);
+}
+
+.evz-page-design--rings::after {
+  right: -12%;
+  border-left-color: color-mix(in srgb, var(--design-ink) 54%, transparent);
+  opacity: 0.62;
+}
+
+.evz-page-design--rings .evz-design-circle-a {
+  right: 16%;
+  top: 24%;
+  width: clamp(170px, 18vw, 330px);
+  height: clamp(170px, 18vw, 330px);
+  border: 10px solid color-mix(in srgb, #0ea5e9 82%, var(--evz-card-solid));
+}
+
+.evz-page-design--rings .evz-design-circle-b {
+  right: 31%;
+  top: 29%;
+  width: clamp(110px, 12vw, 210px);
+  height: clamp(110px, 12vw, 210px);
+  border: 8px solid color-mix(in srgb, #38bdf8 74%, var(--evz-card-solid));
+}
+
+.evz-page-design--rings .evz-design-circle-c {
+  right: 28%;
+  top: 48%;
+  width: clamp(72px, 8vw, 150px);
+  height: clamp(72px, 8vw, 150px);
+  border: 6px solid color-mix(in srgb, #0284c7 76%, var(--evz-card-solid));
+}
+
+.evz-page-design--ribbon {
+  background:
+    radial-gradient(640px 540px at 100% 30%, color-mix(in srgb, var(--design-orange) 15%, transparent), transparent 62%),
+    linear-gradient(135deg, #dfe8ea 0%, #f8fbfc 54%, #d7e1e2 100%);
+}
+
+.evz-page-design--ribbon::before {
+  right: -7%;
+  top: -4%;
+  width: 42%;
+  height: 112%;
+  border-radius: 58% 0 0 58%;
+  border-left: 4px solid color-mix(in srgb, var(--design-orange) 70%, var(--evz-card-solid));
+  box-shadow:
+    -12px 0 0 color-mix(in srgb, var(--design-ink) 40%, transparent),
+    -26px 0 0 color-mix(in srgb, var(--evz-card-solid) 82%, transparent);
+  transform: rotate(-8deg);
+}
+
+.evz-page-design--ribbon::after {
+  right: 2%;
+  bottom: 10%;
+  width: 24%;
+  height: 34%;
+  border-radius: 55% 0 0 45%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--evz-card-solid) 86%, transparent), color-mix(in srgb, var(--evz-medium) 18%, transparent));
+  border-left: 2px solid color-mix(in srgb, var(--design-orange) 58%, transparent);
+  transform: rotate(-14deg);
+}
+
+.evz-page-design--ribbon .evz-design-line-a,
+.evz-page-design--ribbon .evz-design-line-b {
+  left: 5%;
+  top: 18%;
+  width: 42%;
+  height: 64%;
+  border-left: 2px solid color-mix(in srgb, var(--design-orange) 58%, transparent);
+  border-radius: 50%;
+  transform: rotate(17deg);
+}
+
+.evz-page-design--ribbon .evz-design-line-b {
+  left: 8%;
+  border-left-color: color-mix(in srgb, var(--design-ink) 32%, transparent);
+}
+
+.evz-page-design--ribbon .evz-design-circle-a,
+.evz-page-design--ribbon .evz-design-circle-b,
+.evz-page-design--ribbon .evz-design-circle-c {
+  left: clamp(12px, 4vw, 64px);
+  background: radial-gradient(circle at 35% 28%, #fff, color-mix(in srgb, var(--design-orange) 54%, #fff) 46%, color-mix(in srgb, var(--design-ink) 40%, #fff));
+}
+
+.evz-page-design--ribbon .evz-design-circle-a {
+  top: 18%;
+  width: 38px;
+  height: 38px;
+}
+
+.evz-page-design--ribbon .evz-design-circle-b {
+  top: 40%;
+  width: 26px;
+  height: 26px;
+  background: radial-gradient(circle at 35% 28%, #fff, #d8dee2 52%, #62717a);
+}
+
+.evz-page-design--ribbon .evz-design-circle-c {
+  top: 58%;
+  width: 18px;
+  height: 18px;
+}
+
+.evz-page-design[data-route='projects'] { --design-green: #03cd8c; --design-orange: #f77f00; }
+.evz-page-design[data-route='new-project'] { --design-green: #11d19b; --design-orange: #ff9f1c; }
+.evz-page-design[data-route='editor'] { --design-green: #00b894; --design-orange: #f77f00; }
+.evz-page-design[data-route='snap-lens-studio'] { --design-green: #08c995; --design-orange: #ffb703; }
+.evz-page-design[data-route='developer'] { --design-green: #00b894; --design-orange: #fb8500; }
+.evz-page-design[data-route='materials-shaders'] { --design-green: #03cd8c; --design-orange: #f77f00; }
+.evz-page-design[data-route='vfx-motion'] { --design-green: #12c2a0; --design-orange: #ff8500; }
+.evz-page-design[data-route='interactive-effects'] { --design-green: #03cd8c; --design-orange: #f59e0b; }
+.evz-page-design[data-route='resources'] { --design-green: #82c83c; --design-orange: #f77f00; }
+.evz-page-design[data-route='learning'] { --design-green: #18c29c; --design-orange: #ffb000; }
+.evz-page-design[data-route='preview-quality'] { --design-green: #00c2a0; --design-orange: #f77f00; }
+.evz-page-design[data-route='insights'] { --design-green: #0fbf9c; --design-orange: #ff9f1c; }
+.evz-page-design[data-route='settings'] { --design-green: #03cd8c; --design-orange: #d99a2b; }
+.evz-page-design[data-route='internal-admin'] { --design-green: #04b989; --design-orange: #ff8c00; }
+.evz-page-design[data-route='recovery-diagnostics'] { --design-green: #11c590; --design-orange: #f77f00; }
+.evz-page-design[data-route='maintenance'] { --design-green: #03cd8c; --design-orange: #f77f00; }
+
+[data-evz-theme='dark'] .evz-page-design {
+  opacity: 0.36;
+  mix-blend-mode: screen;
+}
+
+/* Keep per-page styling, but normalize root page gutters globally. */
+html:not([data-evz-theme='dark']) .evzone-page-frame > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+),
+html:not([data-evz-theme='dark']) .evzone-route-content > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+) {
+  background-color: transparent !important;
+  background-image: none !important;
+  padding-top: var(--evz-page-gutter) !important;
+  padding-left: var(--evz-page-gutter) !important;
+  padding-right: var(--evz-page-gutter) !important;
+}
+
+html:not([data-evz-theme='dark']) .evzone-page-frame > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+)::before,
+html:not([data-evz-theme='dark']) .evzone-route-content > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+)::before,
+html:not([data-evz-theme='dark']) .evzone-page-frame > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+)::after,
+html:not([data-evz-theme='dark']) .evzone-route-content > :is(
+  main[class*='page'],
+  div[class*='page'],
+  main[class^='evz-'],
+  div[class^='evz-'],
+  main.evz-page,
+  div.evz-page
+)::after {
+  background-image: none !important;
+}
+
+/* Global topbar behavior across pages. */
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar) {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 40 !important;
+  border-radius: 0 !important;
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-bottom: var(--evz-section-gap) !important;
+}
+
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar, .command-bar) :is(h1, .brand-title, .project-title, .evz-brand-title, .evz-brand-title strong) {
+  font-size: var(--evz-topbar-title-size) !important;
+  line-height: 1.2 !important;
+}
+
+/* Use shared brand assets in shell + page topbar title icons. */
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar, .command-bar) :is(.brand-mark, .evz-brand-mark, .evz-logo, .brand-badge, .evz-mark) {
+  width: var(--evz-topbar-icon-size) !important;
+  height: var(--evz-topbar-icon-size) !important;
+  min-width: var(--evz-topbar-icon-size) !important;
+  min-height: var(--evz-topbar-icon-size) !important;
+  flex: 0 0 var(--evz-topbar-icon-size) !important;
+  display: grid !important;
+  place-items: center !important;
+  background-image: url("/assets/EV Zone FaithHub Logo (Single).png") !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  align-self: center !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-indent: -9999px !important;
+}
+
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar, .command-bar) :is(.brand-mark, .evz-brand-mark, .evz-logo, .brand-badge, .evz-mark) > svg {
+  display: none !important;
+}
+
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar, .command-bar) .evz-mark::after {
+  display: none !important;
+}
+
+/* Remove repetitive product label text from topbars (e.g., "EVzone Effect Creator"). */
+.evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar) :is(.eyebrow, .evz-eyebrow) {
+  display: none !important;
+}
+
+.evzone-page-frame .command-bar .eyebrow {
+  display: none !important;
+}
+
+/* Normalize major section/card-grid gaps across pages. */
+.evzone-page-frame :is(
+  .evz-shell,
+  .evz-workspace,
+  .dev-shell,
+  .ai-shell,
+  .library-shell,
+  .tracking-grid,
+  .bottom-suite,
+  .evz-section-grid,
+  .evz-stats-row,
+  .evz-alerts,
+  .evz-metric-row,
+  .evz-actions-grid,
+  .evz-project-grid,
+  .evz-template-grid,
+  .evz-tools-grid,
+  .evz-collections,
+  .featured-packs,
+  .resource-grid,
+  .template-grid,
+  .hero-stats
+) {
+  gap: var(--evz-card-grid-gap) !important;
+}
+
+[data-evz-theme='dark'] .evzone-page-frame > * {
+  background: transparent !important;
+  color: var(--evz-ink);
+}
+
+[data-evz-theme='dark'] .evzone-route-content > * {
+  background: transparent !important;
+  color: var(--evz-ink);
+}
+
+[data-evz-theme='dark'] .evzone-page-frame :is(
+  .topbar,
+  .titlebar,
+  .panel,
+  .admin-hero,
+  .evz-topbar,
+  .evz-hero,
+  .evz-card,
+  .evz-panel,
+  .evz-tile
+) {
+  background: color-mix(in srgb, var(--evz-card-solid) 92%, transparent);
+  border-color: var(--evz-border);
+}
+
+[data-evz-theme='dark'] .evzone-page-frame :is(
+  [class*='panel'],
+  [class*='-panel'],
+  [class*='card'],
+  [class*='-card'],
+  [class*='tile'],
+  [class*='drawer']
+):not([class*='btn']):not([class*='button']):not([class*='pill']):not([class*='chip']):not([class*='badge']) {
+  background-color: color-mix(in srgb, var(--evz-card-solid) 96%, transparent) !important;
+  background-image: none !important;
+  border-color: var(--evz-border) !important;
+  color: var(--evz-ink);
+}
+
+[data-evz-theme='dark'] .evzone-page-frame :is(input, select, textarea) {
+  background: color-mix(in srgb, var(--evz-card-solid) 96%, transparent);
+  border-color: var(--evz-border);
+}
+
+[data-evz-theme='dark'] .evzone-page-frame :is(svg, .MuiSvgIcon-root) {
+  color: currentColor;
+}
+
+@media (max-width: 900px) {
+  .evzone-page-frame {
+    --evz-section-gap: 14px;
+    --evz-card-grid-gap: 10px;
+    --evz-topbar-icon-size: 36px;
+  }
+
+  .evzone-page-frame > :is(
+    main[class*='page'],
+    div[class*='page'],
+    main[class^='evz-'],
+    div[class^='evz-'],
+    main.evz-page,
+    div.evz-page
+  ),
+  .evzone-route-content > :is(
+    main[class*='page'],
+    div[class*='page'],
+    main[class^='evz-'],
+    div[class^='evz-'],
+    main.evz-page,
+    div.evz-page
+  ) {
+    padding-top: var(--evz-page-gutter-mobile) !important;
+    padding-left: var(--evz-page-gutter-mobile) !important;
+    padding-right: var(--evz-page-gutter-mobile) !important;
+  }
+
+  .evzone-page-frame {
+    overflow-x: hidden;
+  }
+
+  /* Hide internal page headers on mobile to avoid double headers with the global AppShell top bar. */
+  .evzone-page-frame :is(.topbar, .top-shell, .evz-topbar, .titlebar, .command-bar) {
+    display: none !important;
+  }
+}

@@ -1,0 +1,32 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="evz-accent" x1="22" y1="22" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF9F1A"/>
+      <stop offset="1" stop-color="#F77F00"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer tracking corners -->
+  <path d="M11 8H20" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M8 11V20" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M44 8H53" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M56 11V20" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M11 56H20" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M8 44V53" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M44 56H53" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M56 44V53" stroke="#03CD8C" stroke-width="3.6" stroke-linecap="round"/>
+
+  <!-- guide rings -->
+  <circle cx="32" cy="32" r="18.5" stroke="#03CD8C" stroke-opacity="0.45" stroke-width="2.8"/>
+  <circle cx="32" cy="32" r="11.5" stroke="#03CD8C" stroke-opacity="0.45" stroke-width="2.4"/>
+
+  <!-- center mark -->
+  <circle cx="32" cy="32" r="8.8" fill="url(#evz-accent)"/>
+  <circle cx="32" cy="32" r="4.1" fill="#0A2233"/>
+
+  <!-- orbit dots -->
+  <circle cx="32" cy="7.5" r="2.4" fill="#03CD8C"/>
+  <circle cx="32" cy="56.5" r="2.4" fill="#03CD8C"/>
+  <circle cx="7.5" cy="32" r="2.4" fill="#03CD8C"/>
+  <circle cx="56.5" cy="32" r="2.4" fill="#03CD8C"/>
+</svg>
