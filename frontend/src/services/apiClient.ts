@@ -1,5 +1,5 @@
-const DEFAULT_EVZONE_API_URL = 'http://localhost:3777/api/v1';
-const DEFAULT_STUDIO_BRIDGE_URL = 'ws://localhost:3777/studio-bridge';
+const DEFAULT_EVZONE_API_URL = resolveDefaultApiUrl();
+const DEFAULT_STUDIO_BRIDGE_URL = resolveDefaultStudioBridgeUrl();
 
 type QueryValue = string | number | boolean | null | undefined;
 
@@ -113,4 +113,19 @@ function normalizeUrl(url: string) {
 function formatApiMessage(message: string | string[] | undefined, fallback: string) {
   if (Array.isArray(message)) return message.join(', ');
   return message || fallback;
+}
+
+function resolveDefaultApiUrl() {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/v1`;
+  }
+  return 'http://localhost:3777/api/v1';
+}
+
+function resolveDefaultStudioBridgeUrl() {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/studio-bridge`;
+  }
+  return 'ws://localhost:3777/studio-bridge';
 }

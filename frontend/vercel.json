@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|studio-bridge).*)",
       "destination": "/index.html"
     }
   ]

@@ -625,6 +625,7 @@ export default function EvzonePremiumStudio(): React.ReactElement {
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
             placeholder="Search effects..."
             style={{
               width: "100%",
@@ -710,6 +711,11 @@ export default function EvzonePremiumStudio(): React.ReactElement {
                   </button>
                 );
               })}
+              {visibleEffects.length === 0 ? (
+                <div style={{ color: "#647084", fontWeight: 800, padding: "8px 2px" }}>
+                  No effects match your search.
+                </div>
+              ) : null}
             </div>
           </section>
 
