@@ -47,7 +47,6 @@ import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import SensorsRoundedIcon from '@mui/icons-material/SensorsRounded';
 import { pageGroups, pageRoutes } from '../routes/pageRoutes';
 import { StudioStatusBadge } from './StudioStatusBadge';
-import { PageDesignBackdrop } from './PageDesignBackdrop';
 import { evzoneColors } from '../theme/colors';
 import { useEffectHubStore } from '../store/useEffectHubStore';
 import { toast } from 'sonner';
@@ -498,7 +497,6 @@ export function AppShell() {
           position: 'relative',
         }}
       >
-        <PageDesignBackdrop routeId={currentRoute.id} group={currentRoute.group} />
         <Box className="evzone-route-content">
           <Outlet />
         </Box>

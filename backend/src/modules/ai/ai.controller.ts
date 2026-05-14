@@ -1,8 +1,8 @@
 import { Body, Controller, Get, NotFoundException, Param, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags } from '@nestjs/swagger';
-import OpenAI from 'openai';
-import type { ImageGenerateParams } from 'openai/resources/images';
+import OpenAI from 'openai/index.js';
+import type { ImageGenerateParams } from 'openai/resources/images.js';
 import { AIGenerateDto } from '../../common/dto/base.dto';
 import { AppStateService } from '../../database/app-state.service';
 
