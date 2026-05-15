@@ -138,11 +138,16 @@ export default function EVzoneAICreatorHub() {
   const [generationMessage, setGenerationMessage] = useState("Ready to generate. Add OPENAI_API_KEY on the backend for real image output.");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const latestGeneratedImage = useMemo(() => {
-    const result = generatedResults[0]?.result;
-    const imageDataUrl = typeof result?.imageDataUrl === "string" ? result.imageDataUrl : "";
-    const imageUrl = typeof result?.imageUrl === "string" ? result.imageUrl : "";
+  const readResultImage = (result?: AIGenerationResult["result"]) => {
+    if (!result) return "";
+    const imageDataUrl = typeof result.imageDataUrl === "string" ? result.imageDataUrl : "";
+    const imageUrl = typeof result.imageUrl === "string" ? result.imageUrl : "";
     return imageDataUrl || imageUrl;
+  };
+
+  const latestGeneratedImage = useMemo(() => {
+    const newestResultWithImage = generatedResults.find((item) => readResultImage(item.result));
+    return readResultImage(newestResultWithImage?.result);
   }, [generatedResults]);
 
   const metrics = useMemo(
@@ -186,10 +191,17 @@ export default function EVzoneAICreatorHub() {
       });
       setGeneratedResults((previous) => [result, ...previous].slice(0, 6));
       const needsKey = Boolean(result.result?.requiresApiKey);
+      const failed = Boolean(result.result?.failed);
+      const resultMessage = typeof result.result?.message === "string" ? result.result.message : "";
+      const hasImage = Boolean(readResultImage(result.result));
       setGenerationMessage(
         needsKey
           ? "Backend connected. Real AI image output needs OPENAI_API_KEY in EVzone_Effect_Hub_Backend/.env."
-          : `${mode} finished. The preview and result list updated.`,
+          : failed
+            ? `Image generation failed: ${resultMessage || "Backend provider returned an error."}`
+            : hasImage
+              ? `${mode} finished. The preview and result list updated.`
+              : `${mode} finished, but no image was returned. Check model settings and backend logs.`,
       );
     } catch (error) {
       setGenerationMessage(error instanceof Error ? error.message : "AI generation failed.");
@@ -645,15 +657,21 @@ export default function EVzoneAICreatorHub() {
           <div className="results-row">
             {generatedResults.map((result) => (
               <div className="result-card live-result" key={result.id}>
-                {result.result?.imageDataUrl || result.result?.imageUrl ? (
-                  <img className="result-image" src={(result.result.imageDataUrl || result.result.imageUrl) as string} alt={result.title} />
+                {readResultImage(result.result) ? (
+                  <img className="result-image" src={readResultImage(result.result)} alt={result.title} />
                 ) : (
                   <div className="result-art" />
                 )}
                 <div className="result-content">
                   <span>{result.target}</span>
                   <strong>{result.title}</strong>
-                  <small>{result.result?.requiresApiKey ? "Add OPENAI_API_KEY to enable paid OpenAI image generation." : result.prompt}</small>
+                  <small>
+                    {result.result?.requiresApiKey
+                      ? "Add OPENAI_API_KEY to enable paid OpenAI image generation."
+                      : result.result?.failed
+                        ? (typeof result.result?.message === "string" ? result.result.message : "Image generation failed on backend provider.")
+                        : result.prompt}
+                  </small>
                 </div>
                 <div className="result-actions">
                   <em>{result.safetyStatus ?? result.status}</em>

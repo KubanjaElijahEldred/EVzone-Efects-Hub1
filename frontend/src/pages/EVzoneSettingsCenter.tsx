@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useEffectHubStore } from "../store/useEffectHubStore";
 
 type SectionKey =
   | "General"
@@ -117,6 +118,8 @@ export default function EVzoneSettingsCenter() {
   const [experimentalAIGraph, setExperimentalAIGraph] = useState(true);
   const [experimentalMobilePreview, setExperimentalMobilePreview] = useState(false);
   const [experimentalDepthPreview, setExperimentalDepthPreview] = useState(false);
+  const themeMode = useEffectHubStore((state) => state.themeMode);
+  const setThemeMode = useEffectHubStore((state) => state.setThemeMode);
 
   const [cacheCleared, setCacheCleared] = useState(false);
   const [layoutReset, setLayoutReset] = useState(false);
@@ -354,6 +357,14 @@ export default function EVzoneSettingsCenter() {
 
     return (
       <SettingsPanel eyebrow="General settings" title="Language, Region, Time and Project Defaults">
+        <div className="toggle-stack">
+          <ToggleSettingRow
+            title="Dark theme"
+            detail="Switch between premium light and dark mode. Recommended for mobile control instead of top-bar icon."
+            checked={themeMode === "dark"}
+            onChange={(value) => setThemeMode(value ? "dark" : "light")}
+          />
+        </div>
         <div className="setting-grid">
           <SelectSetting label="Language" value={language} onChange={setLanguage} options={["English", "French", "Swahili", "Arabic", "Portuguese", "Spanish"]} />
           <SelectSetting label="Region" value={region} onChange={setRegion} options={["Africa / Kampala", "Africa / Nairobi", "Africa / Lagos", "Africa / Johannesburg", "Europe / London", "UTC"]} />

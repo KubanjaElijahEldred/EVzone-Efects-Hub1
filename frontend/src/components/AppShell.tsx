@@ -15,7 +15,6 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
-import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
@@ -331,59 +330,6 @@ export function AppShell() {
           <Box
             sx={{
               position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 64,
-              zIndex: (muiTheme) => muiTheme.zIndex.drawer - 1,
-              display: 'flex',
-              alignItems: 'center',
-              px: 2,
-              gap: 2,
-              bgcolor: isDark ? 'rgba(10,18,30,0.86)' : 'rgba(255,255,255,0.92)',
-              backdropFilter: 'blur(14px)',
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <IconButton
-              aria-label="Open navigation"
-              onClick={() => setDrawerOpen(true)}
-              sx={{
-                color: 'primary.main',
-                bgcolor: 'rgba(3,205,140,0.08)',
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
-            
-            <Box display="flex" alignItems="center" gap={1.2} flex={1}>
-              <Box
-                component="img"
-                src="/assets/EV Zone FaithHub Logo (Single).png"
-                alt="EVzone"
-                sx={{ height: 32, width: 32, objectFit: 'contain' }}
-              />
-              <Typography variant="subtitle1" fontWeight={900} letterSpacing="-0.02em" noWrap>
-                {currentRoute.shortTitle}
-              </Typography>
-            </Box>
-
-            <IconButton
-              aria-label="Toggle theme"
-              onClick={() => setThemeMode(themeMode === 'dark' ? 'light' : 'dark')}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              {themeMode === 'dark' ? <DarkModeRoundedIcon /> : <LightModeRoundedIcon />}
-            </IconButton>
-          </Box>
-
-          <Box
-            sx={{
-              position: 'fixed',
               bottom: 0,
               left: 0,
               right: 0,
@@ -488,7 +434,7 @@ export function AppShell() {
         className="evzone-page-frame"
         sx={{
           ml: { lg: `${DRAWER_WIDTH + SIDEBAR_CONTENT_GAP}px` },
-          mt: { xs: 8, lg: 0 },
+          mt: { xs: 0, lg: 0 },
           mb: { xs: 9, lg: 0 },
           minHeight: '100vh',
           width: { lg: `calc(100% - ${DRAWER_WIDTH + SIDEBAR_CONTENT_GAP}px)` },

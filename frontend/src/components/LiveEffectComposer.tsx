@@ -975,6 +975,9 @@ const composerStyles = `
   padding: 18px;
   background: rgba(255, 255, 255, .88);
   box-shadow: 0 16px 42px rgba(15, 23, 42, .08);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .evz-live-composer.compact {
@@ -1044,7 +1047,7 @@ const composerStyles = `
 
 .evz-live-composer-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   gap: 16px;
   align-items: start;
 }
@@ -1339,6 +1342,7 @@ const composerStyles = `
 .evz-composer-controls {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .evz-control-group {
@@ -1346,6 +1350,9 @@ const composerStyles = `
   border-radius: 20px;
   border: 1px solid rgba(15, 23, 42, .08);
   background: #ffffff;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .evz-control-title {
@@ -1388,6 +1395,7 @@ const composerStyles = `
   font-size: 12.5px;
   font-weight: 950;
   cursor: pointer;
+  min-width: 0;
 }
 
 .evz-file-button {
@@ -1661,6 +1669,11 @@ const composerStyles = `
 }
 
 @media (max-width: 720px) {
+  .evz-live-composer {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
   .evz-live-composer-head {
     flex-direction: column;
   }
@@ -1675,8 +1688,36 @@ const composerStyles = `
     grid-template-columns: 1fr;
   }
 
-  .evz-slider-row {
+  .evz-camera-open-row {
     grid-template-columns: 1fr;
+  }
+
+  .evz-control-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .evz-control-title small {
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: initial;
+  }
+
+  .evz-file-button,
+  .evz-mini-action,
+  .evz-effect-selector button {
+    width: 100%;
+    justify-content: flex-start;
+    padding-inline: 12px;
+    white-space: normal;
+    text-align: left;
+  }
+
+  .evz-slider-row {
+    grid-template-columns: 78px minmax(0, 1fr) 44px;
+    gap: 8px;
   }
 
   .evz-zoom-chip {
@@ -1718,8 +1759,47 @@ const composerStyles = `
   }
 
   .evz-editor-toolbar {
-    grid-template-columns: 1fr repeat(4, 34px) 1fr;
+    grid-template-columns: minmax(50px, 1fr) repeat(4, 34px) minmax(50px, 1fr);
     gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .evz-live-composer {
+    padding: 10px;
+  }
+
+  .evz-control-group {
+    padding: 11px;
+    border-radius: 16px;
+  }
+
+  .evz-effect-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .evz-slider-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .evz-slider-row b {
+    text-align: left;
+  }
+
+  .evz-adjust-icons button {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .evz-editor-toolbar {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .evz-editor-toolbar button {
+    justify-items: center !important;
   }
 }
 `;
