@@ -684,6 +684,14 @@ export default function EvzonePremiumStudio(): React.ReactElement {
             <img className="evz-hero-art" src={assets.hero} alt="Robotic studio arm creating a premium AR live FX prism" />
             <div className="evz-hero-motion" aria-hidden="true"><span className="evz-pulse" /><span className="evz-orbit" /><span className="evz-shine one" /><span className="evz-shine two" /></div>
             <div className="evz-hero-copy">
+              <input
+                className="evz-hero-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search effects..."
+                aria-label="Search effects in hero card"
+              />
               <h1>Build <span>world-class</span> <em>AR effects</em> for live creators.</h1>
               <p className="evz-hero-text">A premium, free, studio-native creation hub for filters, beauty, AI visuals, live overlays, VFX, gesture interactions, templates, and EVzone-ready production effects. No login. No billing. Just create, preview, optimize, and send to studio.</p>
               <div className="evz-hero-actions">

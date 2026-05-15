@@ -14,9 +14,25 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const prefix = config.get<string>('API_PREFIX') || 'api/v1';
   const corsOrigin = config.get<string>('EVZONE_CORS_ORIGIN') || '*';
+  const allowedOrigins = corsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const lanDevOriginPattern = /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/;
 
   app.setGlobalPrefix(prefix);
-  app.enableCors({ origin: corsOrigin === '*' ? true : corsOrigin.split(','), credentials: false });
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || corsOrigin === '*') {
+        callback(null, true);
+        return;
+      }
+      const isExplicitlyAllowed = allowedOrigins.includes(origin);
+      const isLanDevOrigin = lanDevOriginPattern.test(origin);
+      callback(null, isExplicitlyAllowed || isLanDevOrigin);
+    },
+    credentials: false,
+  });
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(compression());
   app.useGlobalPipes(
