@@ -984,6 +984,25 @@ body { margin: 0; }
   .evz-page { padding: 14px; }
   .command-actions { flex-wrap: wrap; }
   .command-actions > * { width: 100%; }
+  .panel-header .tab-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .panel-header .tab-row::-webkit-scrollbar { display: none; }
+  .panel-header .tab-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    color: #1f2937;
+    background: #f3f4f6;
+    border-color: rgba(15, 23, 42, 0.12);
+  }
+  .panel-header .tab-btn.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--evz-green), #10b981);
+    border-color: transparent;
+  }
   .viewport-headline { max-width: calc(100% - 32px); left: 16px; right: 16px; top: 16px; }
   .viewport-headline h2 { font-size: 22px; }
   .component-grid, .preview-meta-grid, .budget-grid { grid-template-columns: 1fr; }

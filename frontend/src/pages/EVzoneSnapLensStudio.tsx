@@ -2188,6 +2188,105 @@ const styles = `
   height: 26px;
 }
 
+html:not([data-evz-theme='dark']) .snap-studio-page {
+  background:
+    radial-gradient(circle at 6% 7%, rgba(3,205,140,.20), transparent 36%),
+    radial-gradient(circle at 96% 5%, rgba(247,127,0,.16), transparent 36%),
+    linear-gradient(180deg, #f6fafc, #e9f0f7);
+}
+
+html:not([data-evz-theme='dark']) .snap-shell {
+  border-color: rgba(15,23,42,.14);
+  background: rgba(255,255,255,.88);
+  box-shadow: 0 26px 80px rgba(15,23,42,.14);
+}
+
+html:not([data-evz-theme='dark']) .snap-phone {
+  border-color: rgba(15,23,42,.2);
+  box-shadow: 0 18px 40px rgba(15,23,42,.18);
+}
+
+html:not([data-evz-theme='dark']) .snap-control-surface {
+  border-color: rgba(15,23,42,.14);
+  background: linear-gradient(180deg, #f8fbff, #ecf3fb);
+}
+
+html:not([data-evz-theme='dark']) .snap-view-tabs button {
+  color: #475569;
+  background: rgba(255,255,255,.9);
+  border-color: rgba(15,23,42,.12);
+}
+
+html:not([data-evz-theme='dark']) .snap-view-tabs button.active {
+  color: #0f172a;
+  background: rgba(3,205,140,.16);
+  border-color: rgba(3,205,140,.34);
+}
+
+html:not([data-evz-theme='dark']) .snap-control-surface section {
+  border-color: rgba(15,23,42,.14);
+  background: rgba(255,255,255,.9);
+}
+
+html:not([data-evz-theme='dark']) .snap-control-surface h2,
+html:not([data-evz-theme='dark']) .snap-lens-grid strong,
+html:not([data-evz-theme='dark']) .snap-tool-grid button {
+  color: #0f172a;
+}
+
+html:not([data-evz-theme='dark']) .snap-lens-grid small {
+  color: #475569;
+}
+
+html:not([data-evz-theme='dark']) .snap-lens-grid > button,
+html:not([data-evz-theme='dark']) .snap-tool-grid button {
+  border-color: rgba(15,23,42,.14);
+  background: rgba(255,255,255,.94);
+}
+
+html:not([data-evz-theme='dark']) .snap-lens-grid > button.active,
+html:not([data-evz-theme='dark']) .snap-tool-grid button.active {
+  border-color: rgba(3,205,140,.4);
+  background: rgba(3,205,140,.14);
+}
+
+body:not([data-evz-theme='dark']) .snap-studio-page,
+[data-evz-theme='light'] .snap-studio-page {
+  background:
+    radial-gradient(circle at 6% 7%, rgba(3,205,140,.20), transparent 36%),
+    radial-gradient(circle at 96% 5%, rgba(247,127,0,.16), transparent 36%),
+    linear-gradient(180deg, #f6fafc, #e9f0f7);
+}
+
+body:not([data-evz-theme='dark']) .snap-control-surface,
+[data-evz-theme='light'] .snap-control-surface {
+  color: #0f172a;
+  border-color: rgba(15,23,42,.14);
+  background: linear-gradient(180deg, #f8fbff, #ecf3fb);
+}
+
+body:not([data-evz-theme='dark']) .snap-control-surface section,
+[data-evz-theme='light'] .snap-control-surface section {
+  border-color: rgba(15,23,42,.14);
+  background: rgba(255,255,255,.94);
+}
+
+body:not([data-evz-theme='dark']) .snap-control-surface section *,
+[data-evz-theme='light'] .snap-control-surface section * {
+  opacity: 1 !important;
+}
+
+body:not([data-evz-theme='dark']) .snap-control-surface h2,
+body:not([data-evz-theme='dark']) .snap-lens-grid strong,
+body:not([data-evz-theme='dark']) .snap-lens-grid small,
+body:not([data-evz-theme='dark']) .snap-tool-grid button,
+[data-evz-theme='light'] .snap-control-surface h2,
+[data-evz-theme='light'] .snap-lens-grid strong,
+[data-evz-theme='light'] .snap-lens-grid small,
+[data-evz-theme='light'] .snap-tool-grid button {
+  color: #0f172a;
+}
+
 @media (max-width: 980px) {
   .snap-shell {
     grid-template-columns: 1fr;

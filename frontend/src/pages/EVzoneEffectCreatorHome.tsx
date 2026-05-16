@@ -633,6 +633,33 @@ export default function EvzonePremiumStudio(): React.ReactElement {
   return (
     <div className="evz-premium-shell">
       <style>{styles}</style>
+      <style>{`
+.evz-mobile-hero-search { display: none; }
+@media (max-width: 980px) {
+  .evz-top-search { display: none !important; }
+  .evz-mobile-hero-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin: 0 0 10px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, .12);
+    background: rgba(255,255,255,.96);
+  }
+  .evz-mobile-hero-search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+  }
+}
+      `}</style>
       <style>{premiumAddOnStyles}</style>
 
       <header className="evz-topbar">
@@ -680,18 +707,19 @@ export default function EvzonePremiumStudio(): React.ReactElement {
 
       <main id="dashboard" className="evz-layout">
         <div className="evz-main">
+          <label className="evz-mobile-hero-search" aria-label="Search effects mobile">
+            <span style={{ color: "#6b7280", fontSize: 15, lineHeight: 1 }}>⌕</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search effects..."
+            />
+          </label>
           <section className="evz-hero" aria-label="EVzone premium AR creation hero">
             <img className="evz-hero-art" src={assets.hero} alt="Robotic studio arm creating a premium AR live FX prism" />
             <div className="evz-hero-motion" aria-hidden="true"><span className="evz-pulse" /><span className="evz-orbit" /><span className="evz-shine one" /><span className="evz-shine two" /></div>
             <div className="evz-hero-copy">
-              <input
-                className="evz-hero-search"
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search effects..."
-                aria-label="Search effects in hero card"
-              />
               <h1>Build <span>world-class</span> <em>AR effects</em> for live creators.</h1>
               <p className="evz-hero-text">A premium, free, studio-native creation hub for filters, beauty, AI visuals, live overlays, VFX, gesture interactions, templates, and EVzone-ready production effects. No login. No billing. Just create, preview, optimize, and send to studio.</p>
               <div className="evz-hero-actions">
