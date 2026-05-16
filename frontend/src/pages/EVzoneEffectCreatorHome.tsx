@@ -650,19 +650,25 @@ export default function EvzonePremiumStudio(): React.ReactElement {
     padding: 0 12px;
     border-radius: 999px;
     border: 1px solid rgba(15, 23, 42, .12);
-    background: #ffffff;
+    background: #ffffff !important;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
   }
   .evz-mobile-hero-search input {
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
     width: 100%;
-    border: 0;
+    border: 0 !important;
     outline: 0;
-    background: #ffffff;
-    color: #000000;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000;
+    caret-color: #000000;
+    color-scheme: light;
     font-size: 14px;
     font-weight: 700;
   }
-  .evz-mobile-hero-search input::placeholder { color: #6b7280; }
+  .evz-mobile-hero-search input::placeholder { color: #6b7280 !important; }
 }
       `}</style>
       <style>{premiumAddOnStyles}</style>
