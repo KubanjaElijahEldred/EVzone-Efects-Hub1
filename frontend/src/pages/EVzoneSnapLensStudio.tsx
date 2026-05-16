@@ -495,6 +495,11 @@ export default function EVzoneSnapLensStudio() {
   const [tracking, setTracking] = useState<TrackingState>(DEFAULT_TRACKING);
   const [saveMessage, setSaveMessage] = useState('');
   const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [muted, setMuted] = useState(false);
+  const [nightMode, setNightMode] = useState(false);
+  const [hdEnabled, setHdEnabled] = useState(true);
+  const [alerts, setAlerts] = useState(48);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 980);
 
   const activeLens = useMemo(
     () => lenses.find((lens) => lens.id === activeLensId) ?? lenses[0],
@@ -523,6 +528,12 @@ export default function EVzoneSnapLensStudio() {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth <= 980);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   useEffect(() => {
@@ -828,29 +839,40 @@ export default function EVzoneSnapLensStudio() {
         <div className="snap-camera-media" style={{ filter: `${activeLens.filter} ${adjustFilter}` }}>
           {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
         </div>
+        {nightMode ? <div className="snap-night-mask" /> : null}
         <div className="snap-vignette-mask" style={{ opacity: vignetteOpacity }} />
         <div className="snap-camera-grain" />
         <LensOverlayLayer lens={activeLens} now={now} tracking={tracking} />
 
         <div className="snap-left-rail">
-          <button type="button" className="snap-avatar-btn" aria-label="Profile">
+          <button
+            type="button"
+            className="snap-avatar-btn"
+            aria-label="Profile"
+            onClick={() => setSaveMessage('Profile actions opened.')}
+          >
             <span />
           </button>
           <LensThumbnail lens={activeLens} active={false} onClick={() => openViewWithCamera('stories')} />
           <ToolButton label={liked ? 'Unlike' : 'Like'} onClick={() => setLiked((value) => !value)} active={liked}>
             {liked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />}
           </ToolButton>
-          <ToolButton label="Share">
+          <ToolButton label="Share" onClick={saveEditedFrame}>
             <IosShareRoundedIcon />
           </ToolButton>
-          <div className="snap-view-count">
+          <button
+            type="button"
+            className="snap-view-count"
+            aria-label="View insights"
+            onClick={() => setSaveMessage(`Views: ${activeLens.count}`)}
+          >
             <VisibilityRoundedIcon />
             <span>{activeLens.count}</span>
-          </div>
+          </button>
         </div>
 
         <div className="snap-camera-top">
-          <ToolButton label="Search">
+          <ToolButton label="Search" onClick={() => setSaveMessage('Search is active in the top bar.')}>
             <SearchRoundedIcon />
           </ToolButton>
           <button type="button" className="snap-sound-pill" onClick={() => openViewWithCamera('capture')}>
@@ -858,7 +880,17 @@ export default function EVzoneSnapLensStudio() {
             <span>{activeLens.creator}</span>
             <AddRoundedIcon />
           </button>
-          <span className="snap-alert-badge">48</span>
+          <button
+            type="button"
+            className="snap-alert-badge"
+            aria-label="Notifications"
+            onClick={() => {
+              setAlerts(0);
+              setSaveMessage('Notifications cleared.');
+            }}
+          >
+            {alerts}
+          </button>
         </div>
 
         <div className="snap-right-rail">
@@ -868,16 +900,16 @@ export default function EVzoneSnapLensStudio() {
           <ToolButton label="Flip camera" onClick={flipCamera}>
             <SwapVertRoundedIcon />
           </ToolButton>
-          <ToolButton label="Mute">
+          <ToolButton label={muted ? 'Unmute' : 'Mute'} onClick={() => setMuted((value) => !value)} active={muted}>
             <VolumeOffRoundedIcon />
           </ToolButton>
-          <ToolButton label="Music">
+          <ToolButton label="Music" onClick={() => setSaveMessage('Music controls ready.')}>
             <MusicNoteRoundedIcon />
           </ToolButton>
-          <ToolButton label="HD" active>
+          <ToolButton label={hdEnabled ? 'HD on' : 'HD off'} onClick={() => setHdEnabled((value) => !value)} active={hdEnabled}>
             <HdRoundedIcon />
           </ToolButton>
-          <ToolButton label="Night mode">
+          <ToolButton label="Night mode" onClick={() => setNightMode((value) => !value)} active={nightMode}>
             <DarkModeRoundedIcon />
           </ToolButton>
           <ToolButton label="More tools" onClick={() => openViewWithCamera('adjust')}>
@@ -887,7 +919,7 @@ export default function EVzoneSnapLensStudio() {
 
         <div className="snap-lens-tray">
           <div className="snap-lens-row">
-            {visibleLenses.map((lens) => (
+            {(isMobileViewport ? lenses : visibleLenses).map((lens) => (
               <LensThumbnail
                 key={lens.id}
                 lens={lens}
@@ -1272,6 +1304,16 @@ const styles = `
   background: radial-gradient(circle at 50% 45%, rgba(0,0,0,0) 40%, rgba(0,0,0,.66) 100%);
 }
 
+.snap-night-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(0,0,0,0) 26%, rgba(0,0,0,.48) 88%),
+    rgba(15,23,42,.16);
+}
+
 .snap-camera-media video,
 .snap-capture-media video {
   width: 100%;
@@ -1521,10 +1563,12 @@ const styles = `
 }
 
 .snap-view-count {
+  border: 0;
   display: grid;
   justify-items: center;
   gap: 0;
   color: #fff;
+  background: transparent;
   font-weight: 900;
   font-size: 12px;
   text-shadow: 0 2px 10px rgba(0,0,0,.7);
@@ -1570,6 +1614,7 @@ const styles = `
 }
 
 .snap-alert-badge {
+  border: 0;
   position: absolute;
   top: -9px;
   right: -14px;
@@ -1583,6 +1628,7 @@ const styles = `
   background: #ff477e;
   font-weight: 1000;
   font-size: 13px;
+  cursor: pointer;
 }
 
 .snap-lens-tray {
