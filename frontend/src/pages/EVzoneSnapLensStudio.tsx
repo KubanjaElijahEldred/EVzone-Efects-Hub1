@@ -687,6 +687,12 @@ export default function EVzoneSnapLensStudio() {
     setValues((current) => ({ ...current, [activeAdjustId]: value }));
   }
 
+  function cycleFilter() {
+    const currentIndex = filterLooks.findIndex((filter) => filter.id === activeFilterId);
+    const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % filterLooks.length;
+    setActiveFilterId(filterLooks[nextIndex].id);
+  }
+
   function saveEditedFrame() {
     const video = videoRef.current;
     if (!video || !cameraActive || video.videoWidth === 0 || video.videoHeight === 0) {
@@ -929,10 +935,23 @@ export default function EVzoneSnapLensStudio() {
           </label>
           <div className="snap-edit-tabs">
             <button type="button" onClick={() => setValues(Object.fromEntries(adjustTools.map((tool) => [tool.id, tool.value])))}>Cancel</button>
-            <FilterVintageRoundedIcon />
-            <TuneRoundedIcon className="active" />
-            <ColorLensRoundedIcon />
-            <CropRoundedIcon />
+            <button type="button" className="snap-edit-icon-btn" aria-label="Open filters" onClick={() => openViewWithCamera('capture')}>
+              <FilterVintageRoundedIcon />
+            </button>
+            <button type="button" className="snap-edit-icon-btn active" aria-label="Adjust tools" onClick={() => openViewWithCamera('adjust')}>
+              <TuneRoundedIcon />
+            </button>
+            <button type="button" className="snap-edit-icon-btn" aria-label="Change color filter" onClick={cycleFilter}>
+              <ColorLensRoundedIcon />
+            </button>
+            <button
+              type="button"
+              className="snap-edit-icon-btn"
+              aria-label="Toggle crop mode"
+              onClick={() => setCameraMode((mode) => (mode === 'SQUARE' ? 'PHOTO' : 'SQUARE'))}
+            >
+              <CropRoundedIcon />
+            </button>
             <button type="button" onClick={saveEditedFrame}>Save</button>
             <button type="button" onClick={() => openViewWithCamera('camera')}>Done</button>
           </div>
@@ -1854,6 +1873,15 @@ const styles = `
   pointer-events: none;
 }
 
+.snap-face-effect {
+  border-radius: 46% 46% 50% 50%;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,.1), rgba(255,255,255,0) 44%),
+    linear-gradient(180deg, rgba(34,211,238,.14), rgba(217,70,239,.1));
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
 .snap-stories-screen {
   position: relative;
   padding: 13px 12px 74px;
@@ -2278,6 +2306,21 @@ const styles = `
   color: rgba(255,255,255,.32);
 }
 
+.snap-edit-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.24);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.snap-edit-icon-btn.active {
+  border-color: rgba(250,204,21,.8);
+  background: rgba(250,204,21,.14);
+}
+
 .snap-save-status {
   margin-top: 8px;
   color: #cbd5e1;
@@ -2302,7 +2345,7 @@ const styles = `
   height: 28px;
 }
 
-.snap-edit-tabs svg.active {
+.snap-edit-icon-btn.active svg {
   color: #ffcc33;
 }
 
