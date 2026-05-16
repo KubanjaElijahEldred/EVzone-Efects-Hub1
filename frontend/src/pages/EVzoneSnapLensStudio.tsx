@@ -1644,6 +1644,10 @@ const styles = `
   align-items: center;
   gap: 10px;
   overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 0 58px 8px;
   scroll-snap-type: x proximity;
@@ -2931,7 +2935,18 @@ body:not([data-evz-theme='dark']) .snap-tool-grid button,
   }
 
   .snap-lens-row {
-    padding-inline: 48px;
+    padding-inline: 16px;
+    gap: 8px;
+  }
+
+  .snap-lens-tray {
+    bottom: 12px;
+  }
+
+  .snap-lens-thumb {
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
   }
 
   .snap-adjust-console {
