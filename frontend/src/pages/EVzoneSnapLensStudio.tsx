@@ -679,11 +679,34 @@ export default function EVzoneSnapLensStudio() {
       return;
     }
     try {
+      const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+      const targetWidth = Math.round(Math.max(window.screen.width, window.screen.height) * dpr);
+      const targetHeight = Math.round(Math.min(window.screen.width, window.screen.height) * dpr);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: nextFacing, width: { ideal: 1080 }, height: { ideal: 1920 } },
+        video: {
+          facingMode: nextFacing,
+          width: { ideal: targetWidth },
+          height: { ideal: targetHeight },
+        },
         audio: false,
       });
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        const capabilities = videoTrack.getCapabilities?.();
+        const maxWidth = capabilities?.width?.max;
+        const maxHeight = capabilities?.height?.max;
+        if (maxWidth && maxHeight) {
+          try {
+            await videoTrack.applyConstraints({
+              width: { ideal: maxWidth },
+              height: { ideal: maxHeight },
+            });
+          } catch {
+            // Keep stream even if max constraints are not supported on this device/browser.
+          }
+        }
+      }
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -950,11 +973,21 @@ export default function EVzoneSnapLensStudio() {
         </section>
 
         <div className="snap-stories-nav">
-          <LocationOnOutlinedIcon />
-          <span><ChatBubbleOutlineRoundedIcon /><b>1</b></span>
-          <CameraAltRoundedIcon />
-          <GroupsRoundedIcon />
-          <span><ChatBubbleOutlineRoundedIcon /><b>7</b></span>
+          <button type="button" className="snap-stories-nav-btn" aria-label="Open camera view" onClick={() => openViewWithCamera('camera')}>
+            <LocationOnOutlinedIcon />
+          </button>
+          <button type="button" className="snap-stories-nav-btn" aria-label="Open inbox" onClick={() => setSaveMessage('Inbox feature is ready for backend connection.')}>
+            <span><ChatBubbleOutlineRoundedIcon /><b>1</b></span>
+          </button>
+          <button type="button" className="snap-stories-nav-btn" aria-label="Open capture" onClick={() => openViewWithCamera('capture')}>
+            <CameraAltRoundedIcon />
+          </button>
+          <button type="button" className="snap-stories-nav-btn" aria-label="Open stories feed" onClick={() => openViewWithCamera('stories')}>
+            <GroupsRoundedIcon />
+          </button>
+          <button type="button" className="snap-stories-nav-btn" aria-label="Open messages" onClick={() => setSaveMessage('Messages panel will open here.')}>
+            <span><ChatBubbleOutlineRoundedIcon /><b>7</b></span>
+          </button>
         </div>
       </div>
     );
@@ -2144,6 +2177,21 @@ const styles = `
   color: #e2e8f0;
   background: rgba(2,6,23,.78);
   border-top: 1px solid rgba(255,255,255,.18);
+}
+
+.snap-stories-nav-btn {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 999px;
+}
+
+.snap-stories-nav-btn:active {
+  background: rgba(255,255,255,.12);
 }
 
 .snap-stories-nav svg {
