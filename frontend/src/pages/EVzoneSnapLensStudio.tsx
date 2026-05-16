@@ -234,22 +234,34 @@ const discoverCards = [
 
 function buildAdjustFilter(values: Record<string, number>, activeFilterId: string) {
   const get = (id: string, fallback: number) => values[id] ?? fallback;
-  const exposure = 0.76 + get('exposure', 50) / 190;
-  const brilliance = 0.84 + get('brilliance', 62) / 250;
-  const brightness = 0.8 + get('brightness', 52) / 240;
-  const contrast = 0.86 + get('contrast', 55) / 210 + get('blackPoint', 46) / 500;
-  const saturation = 0.78 + get('saturation', 58) / 170;
-  const warmth = (get('warmth', 61) - 50) * 0.42;
-  const definition = 0.94 + get('definition', 57) / 360;
+  const n = (id: string, fallback: number) => (get(id, fallback) - 50) / 50;
+  const auto = n('auto', 56);
+  const exposure = n('exposure', 50);
+  const brilliance = n('brilliance', 62);
+  const brightness = n('brightness', 52);
+  const contrast = n('contrast', 55);
+  const blackPoint = n('blackPoint', 46);
+  const saturation = n('saturation', 58);
+  const warmth = n('warmth', 61);
+  const definition = n('definition', 57);
+  const highlights = n('highlights', 48);
+  const shadows = n('shadows', 44);
   const look = filterLooks.find((item) => item.id === activeFilterId)?.filter ?? 'none';
+  const finalBrightness = 1 + exposure * 0.16 + brightness * 0.18 + auto * 0.08 + highlights * 0.08 - shadows * 0.06;
+  const finalContrast = 1 + contrast * 0.18 + blackPoint * 0.08 + auto * 0.06;
+  const finalSaturation = 1 + saturation * 0.22 + auto * 0.04;
+  const hueRotate = warmth * 8;
+  const sepia = Math.max(0, warmth * 0.08);
+  const sharpnessBlurPx = Math.max(0, 0.25 - Math.max(0, definition) * 0.25);
 
   return [
     look,
-    `brightness(${(exposure * brilliance * brightness).toFixed(3)})`,
-    `contrast(${(contrast * definition).toFixed(3)})`,
-    `saturate(${saturation.toFixed(3)})`,
-    `sepia(${Math.max(0, warmth / 100).toFixed(3)})`,
-    `hue-rotate(${warmth.toFixed(2)}deg)`,
+    `brightness(${Math.min(1.35, Math.max(0.72, finalBrightness)).toFixed(3)})`,
+    `contrast(${Math.min(1.35, Math.max(0.75, finalContrast)).toFixed(3)})`,
+    `saturate(${Math.min(1.45, Math.max(0.65, finalSaturation)).toFixed(3)})`,
+    `sepia(${sepia.toFixed(3)})`,
+    `hue-rotate(${hueRotate.toFixed(2)}deg)`,
+    `blur(${sharpnessBlurPx.toFixed(3)}px)`,
   ].join(' ');
 }
 
@@ -482,6 +494,7 @@ export default function EVzoneSnapLensStudio() {
   const [now, setNow] = useState(() => new Date());
   const [tracking, setTracking] = useState<TrackingState>(DEFAULT_TRACKING);
   const [saveMessage, setSaveMessage] = useState('');
+  const [modelStatus, setModelStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   const activeLens = useMemo(
     () => lenses.find((lens) => lens.id === activeLensId) ?? lenses[0],
@@ -502,6 +515,10 @@ export default function EVzoneSnapLensStudio() {
     () => buildAdjustFilter(values, activeFilterId),
     [activeFilterId, values],
   );
+  const vignetteOpacity = useMemo(() => {
+    const level = values.vignette ?? 38;
+    return Math.min(0.45, Math.max(0.04, level / 220));
+  }, [values.vignette]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -520,34 +537,65 @@ export default function EVzoneSnapLensStudio() {
   useEffect(() => {
     let cancelled = false;
     async function initTrackers() {
+      setModelStatus('loading');
+      const wasmSources = [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+        'https://unpkg.com/@mediapipe/tasks-vision@latest/wasm',
+      ];
+      const faceModelSources = [
+        'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+        'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float32/latest/face_landmarker.task',
+      ];
+      const poseModelSources = [
+        'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+        'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task',
+      ];
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
-        );
-        const [face, pose] = await Promise.all([
-          FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath:
-                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
-            },
-            numFaces: 1,
-            runningMode: 'VIDEO',
-          }),
-          PoseLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath:
-                'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
-            },
-            runningMode: 'VIDEO',
-            numPoses: 1,
-          }),
-        ]);
-        if (cancelled) return;
-        faceLandmarkerRef.current = face;
-        poseLandmarkerRef.current = pose;
+        let initialized = false;
+        for (const wasmSource of wasmSources) {
+          if (initialized) break;
+          try {
+            const vision = await FilesetResolver.forVisionTasks(wasmSource);
+            for (const faceModel of faceModelSources) {
+              if (initialized) break;
+              for (const poseModel of poseModelSources) {
+                try {
+                  const [face, pose] = await Promise.all([
+                    FaceLandmarker.createFromOptions(vision, {
+                      baseOptions: { modelAssetPath: faceModel },
+                      numFaces: 1,
+                      runningMode: 'VIDEO',
+                    }),
+                    PoseLandmarker.createFromOptions(vision, {
+                      baseOptions: { modelAssetPath: poseModel },
+                      runningMode: 'VIDEO',
+                      numPoses: 1,
+                    }),
+                  ]);
+                  if (cancelled) return;
+                  faceLandmarkerRef.current = face;
+                  poseLandmarkerRef.current = pose;
+                  initialized = true;
+                  setModelStatus('ready');
+                  break;
+                } catch {
+                  // Try next model variant.
+                }
+              }
+            }
+          } catch {
+            // Try next wasm source.
+          }
+        }
+        if (!initialized) {
+          setModelStatus('error');
+          faceLandmarkerRef.current = null;
+          poseLandmarkerRef.current = null;
+        }
       } catch {
         faceLandmarkerRef.current = null;
         poseLandmarkerRef.current = null;
+        setModelStatus('error');
       }
     }
     void initTrackers();
@@ -684,6 +732,19 @@ export default function EVzoneSnapLensStudio() {
   }, [cameraActive, cameraUnavailable, startCamera, view]);
 
   function updateValue(value: number) {
+    if (activeAdjustId === 'auto') {
+      const delta = value - 56;
+      setValues((current) => ({
+        ...current,
+        auto: value,
+        exposure: Math.min(100, Math.max(0, 50 + delta * 0.28)),
+        brilliance: Math.min(100, Math.max(0, 62 + delta * 0.35)),
+        highlights: Math.min(100, Math.max(0, 48 + delta * 0.3)),
+        shadows: Math.min(100, Math.max(0, 44 + delta * 0.3)),
+        saturation: Math.min(100, Math.max(0, 58 + delta * 0.24)),
+      }));
+      return;
+    }
     setValues((current) => ({ ...current, [activeAdjustId]: value }));
   }
 
@@ -731,6 +792,8 @@ export default function EVzoneSnapLensStudio() {
       <div className="snap-camera-fallback">
         <strong>Camera preview unavailable</strong>
         <span>Allow camera permission, then tap Open camera.</span>
+        {modelStatus === 'loading' ? <small>Loading tracking models...</small> : null}
+        {modelStatus === 'error' ? <small>Tracking models failed to load. Check internet and refresh.</small> : null}
         {!window.isSecureContext ? <small>Tip: open this app on localhost or HTTPS for camera access.</small> : null}
       </div>
     );
@@ -742,6 +805,7 @@ export default function EVzoneSnapLensStudio() {
         <div className="snap-camera-media" style={{ filter: `${activeLens.filter} ${adjustFilter}` }}>
           {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
         </div>
+        <div className="snap-vignette-mask" style={{ opacity: vignetteOpacity }} />
         <div className="snap-camera-grain" />
         <LensOverlayLayer lens={activeLens} now={now} tracking={tracking} />
 
@@ -903,6 +967,7 @@ export default function EVzoneSnapLensStudio() {
       <div className="snap-phone-screen snap-adjust-screen">
         <div className="snap-adjust-preview" style={{ filter: adjustFilter }}>
           {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
+          <div className="snap-vignette-mask" style={{ opacity: vignetteOpacity }} />
           <strong className="snap-adjust-badge">{activeTool.name}</strong>
         </div>
 
@@ -968,6 +1033,7 @@ export default function EVzoneSnapLensStudio() {
       <div className="snap-phone-screen snap-capture-screen">
         <div className="snap-capture-media" style={{ filter: activeFilter.filter }}>
           {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
+          <div className="snap-vignette-mask" style={{ opacity: vignetteOpacity }} />
           <strong>{activeFilter.label.toUpperCase()}</strong>
         </div>
 
@@ -1163,6 +1229,14 @@ const styles = `
   inset: 0;
   overflow: hidden;
   transform: translateZ(0);
+}
+
+.snap-vignette-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle at 50% 45%, rgba(0,0,0,0) 40%, rgba(0,0,0,.66) 100%);
 }
 
 .snap-camera-media video,
@@ -2250,8 +2324,11 @@ const styles = `
   display: flex;
   gap: 15px;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
   scrollbar-width: none;
-  padding-bottom: 20px;
+  padding: 0 4px 20px;
 }
 
 .snap-adjust-icons::-webkit-scrollbar {
@@ -2286,10 +2363,14 @@ const styles = `
 }
 
 .snap-edit-tabs {
-  display: grid;
-  grid-template-columns: 1fr repeat(4, 44px) 1fr 1fr;
+  display: flex;
   align-items: center;
   gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  padding-bottom: 2px;
   color: white;
 }
 
@@ -2300,6 +2381,7 @@ const styles = `
   background: transparent;
   font-size: 17px;
   font-weight: 850;
+  flex: 0 0 auto;
 }
 
 .snap-edit-tabs button:last-child {
@@ -2340,7 +2422,6 @@ const styles = `
 }
 
 .snap-edit-tabs svg {
-  justify-self: center;
   width: 28px;
   height: 28px;
 }
@@ -2490,6 +2571,7 @@ const styles = `
   min-width: 0;
   display: grid;
   gap: 14px;
+  width: 100%;
 }
 
 .snap-view-tabs {
@@ -2738,7 +2820,7 @@ body:not([data-evz-theme='dark']) .snap-tool-grid button,
   }
 
   .snap-phone {
-    width: 100%;
+    width: 100vw;
     min-height: calc(100svh - 137px);
     border-radius: 0;
     border-left: 0;
@@ -2756,6 +2838,24 @@ body:not([data-evz-theme='dark']) .snap-tool-grid button,
 
   .snap-lens-row {
     padding-inline: 48px;
+  }
+
+  .snap-adjust-console {
+    padding: 16px 12px 12px;
+  }
+
+  .snap-edit-tabs {
+    gap: 8px;
+  }
+
+  .snap-edit-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .snap-edit-tabs svg {
+    width: 24px;
+    height: 24px;
   }
 }
 `;
