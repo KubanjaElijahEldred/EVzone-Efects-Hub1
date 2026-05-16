@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import AutoModeRoundedIcon from '@mui/icons-material/AutoModeRounded';
@@ -401,6 +401,7 @@ export default function EVzoneSnapLensStudio() {
   const [activeCategory, setActiveCategory] = useState<SnapCategory>('For you');
   const [activeLensId, setActiveLensId] = useState('phone-stack');
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraUnavailable, setCameraUnavailable] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [cameraMode, setCameraMode] = useState<CameraMode>('PHOTO');
   const [zoom, setZoom] = useState(1);
@@ -451,8 +452,11 @@ export default function EVzoneSnapLensStudio() {
     }
   }, [cameraActive, view]);
 
-  async function startCamera(nextFacing = facingMode) {
-    if (!navigator.mediaDevices?.getUserMedia) return;
+  const startCamera = useCallback(async (nextFacing = facingMode) => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraUnavailable(true);
+      return;
+    }
     try {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -466,10 +470,12 @@ export default function EVzoneSnapLensStudio() {
       }
       setFacingMode(nextFacing);
       setCameraActive(true);
+      setCameraUnavailable(false);
     } catch {
       setCameraActive(false);
+      setCameraUnavailable(true);
     }
-  }
+  }, [facingMode]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -491,15 +497,31 @@ export default function EVzoneSnapLensStudio() {
     void startCamera();
   }
 
+  useEffect(() => {
+    if ((view === 'camera' || view === 'capture' || view === 'adjust') && !cameraActive && !cameraUnavailable) {
+      void startCamera();
+    }
+  }, [cameraActive, cameraUnavailable, startCamera, view]);
+
   function updateValue(value: number) {
     setValues((current) => ({ ...current, [activeAdjustId]: value }));
+  }
+
+  function renderCameraFallback() {
+    return (
+      <div className="snap-camera-fallback">
+        <strong>Camera preview unavailable</strong>
+        <span>Allow camera permission, then tap Open camera.</span>
+        {!window.isSecureContext ? <small>Tip: open this app on localhost or HTTPS for camera access.</small> : null}
+      </div>
+    );
   }
 
   function renderCameraScreen() {
     return (
       <div className="snap-phone-screen snap-camera-screen">
         <div className="snap-camera-media" style={{ filter: `${activeLens.filter} ${adjustFilter}` }}>
-          {cameraActive ? <video ref={videoRef} muted playsInline /> : <SimulatedScene />}
+          {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
         </div>
         <div className="snap-camera-grain" />
         <LensOverlayLayer lens={activeLens} now={now} />
@@ -595,6 +617,10 @@ export default function EVzoneSnapLensStudio() {
   function renderStoriesScreen() {
     return (
       <div className="snap-phone-screen snap-stories-screen">
+        <div className="snap-stories-media">
+          {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
+        </div>
+        <div className="snap-stories-overlay" />
         <div className="snap-stories-top">
           <button type="button" className="snap-mini-avatar" aria-label="Profile" />
           <ToolButton label="Search"><SearchRoundedIcon /></ToolButton>
@@ -715,7 +741,7 @@ export default function EVzoneSnapLensStudio() {
     return (
       <div className="snap-phone-screen snap-capture-screen">
         <div className="snap-capture-media" style={{ filter: activeFilter.filter }}>
-          <SimulatedScene className="desk" />
+          {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
           <strong>{activeFilter.label.toUpperCase()}</strong>
         </div>
 
@@ -912,11 +938,43 @@ const styles = `
   transform: translateZ(0);
 }
 
-.snap-camera-media video {
+.snap-camera-media video,
+.snap-capture-media video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+}
+
+.snap-camera-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: #e2e8f0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(56,189,248,.2), transparent 35%),
+    radial-gradient(circle at 70% 75%, rgba(16,185,129,.18), transparent 35%),
+    linear-gradient(180deg, #020617 0%, #0b1220 100%);
+}
+
+.snap-camera-fallback strong {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.snap-camera-fallback span {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.snap-camera-fallback small {
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 .snap-sim-scene {
@@ -1540,13 +1598,45 @@ const styles = `
 }
 
 .snap-stories-screen {
+  position: relative;
   padding: 13px 12px 74px;
-  color: #111827;
-  background: #fff;
+  color: #f8fafc;
+  background: #020617;
   overflow-y: auto;
 }
 
+.snap-stories-media,
+.snap-stories-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.snap-stories-media {
+  z-index: 0;
+}
+
+.snap-stories-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  filter: blur(10px) saturate(1.08) brightness(.66);
+}
+
+.snap-stories-media .snap-sim-scene {
+  filter: blur(8px) brightness(.68);
+}
+
+.snap-stories-overlay {
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, .58) 0%, rgba(2, 6, 23, .38) 30%, rgba(2, 6, 23, .72) 100%);
+}
+
 .snap-stories-top {
+  position: relative;
+  z-index: 2;
   height: 48px;
   display: grid;
   grid-template-columns: 42px 42px 1fr 42px 42px;
@@ -1555,17 +1645,21 @@ const styles = `
 }
 
 .snap-stories-top .snap-icon-btn {
-  color: #374151;
-  background: #eef0f4;
+  color: #e2e8f0;
+  background: rgba(15,23,42,.62);
+  border: 1px solid rgba(255,255,255,.18);
 }
 
 .snap-stories-top strong {
   text-align: center;
   font-size: 20px;
   font-weight: 1000;
+  color: #f8fafc;
 }
 
 .snap-story-section h3 {
+  position: relative;
+  z-index: 2;
   margin: 10px 0 7px;
   font-size: 18px;
   line-height: 1;
@@ -1579,6 +1673,8 @@ const styles = `
 }
 
 .snap-friend-row {
+  position: relative;
+  z-index: 2;
   display: flex;
   gap: 12px;
   overflow-x: auto;
@@ -1595,7 +1691,7 @@ const styles = `
   padding: 0;
   border: 0;
   background: transparent;
-  color: #111827;
+  color: #f8fafc;
   text-align: center;
 }
 
@@ -1633,12 +1729,14 @@ const styles = `
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #9ca3af;
+  color: #cbd5e1;
   font-size: 12px;
 }
 
 .snap-following-grid,
 .snap-discover-grid {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -1676,6 +1774,7 @@ const styles = `
 
 .snap-stories-nav {
   position: absolute;
+  z-index: 2;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1683,9 +1782,9 @@ const styles = `
   display: flex;
   align-items: center;
   justify-content: space-around;
-  color: #20242c;
-  background: #fff;
-  border-top: 1px solid #eef2f7;
+  color: #e2e8f0;
+  background: rgba(2,6,23,.78);
+  border-top: 1px solid rgba(255,255,255,.18);
 }
 
 .snap-stories-nav svg {
