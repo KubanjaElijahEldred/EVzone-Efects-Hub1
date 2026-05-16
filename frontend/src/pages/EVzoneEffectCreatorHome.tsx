@@ -638,6 +638,9 @@ export default function EvzonePremiumStudio(): React.ReactElement {
 @media (max-width: 980px) {
   .evz-top-search { display: none !important; }
   .evz-mobile-hero-search {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -647,17 +650,19 @@ export default function EvzonePremiumStudio(): React.ReactElement {
     padding: 0 12px;
     border-radius: 999px;
     border: 1px solid rgba(15, 23, 42, .12);
-    background: rgba(255,255,255,.96);
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
   }
   .evz-mobile-hero-search input {
     width: 100%;
     border: 0;
     outline: 0;
-    background: transparent;
-    color: #111827;
+    background: #ffffff;
+    color: #000000;
     font-size: 14px;
     font-weight: 700;
   }
+  .evz-mobile-hero-search input::placeholder { color: #6b7280; }
 }
       `}</style>
       <style>{premiumAddOnStyles}</style>
@@ -726,6 +731,7 @@ export default function EvzonePremiumStudio(): React.ReactElement {
                 <button className="evz-action-btn primary" type="button" onClick={() => navigate("/new-project")}>✦ Create New Effect</button>
                 <button className="evz-action-btn ghost" type="button" onClick={() => navigate("/ai-creator")}>✣ Create with AI</button>
                 <button className="evz-action-btn ghost" type="button" onClick={() => navigate("/preview-quality")}>◉ Preview in Studio</button>
+                <button className="evz-action-btn ghost" type="button" onClick={() => navigate("/snap-lens-studio")}>◈ Open Snap Lenses</button>
               </div>
               <div className="evz-live-badges" aria-label="Live studio status">
                 <span className="evz-live-badge">● Live render <strong>60fps</strong></span>

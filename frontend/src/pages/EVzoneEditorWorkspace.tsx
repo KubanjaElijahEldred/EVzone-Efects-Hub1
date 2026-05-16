@@ -971,8 +971,9 @@ body { margin: 0; }
 }
 @media (max-width: 1380px) {
   .titlebar { grid-template-columns: 1fr; }
-  .workspace-grid { grid-template-columns: 280px 1fr; }
-  .right-panel { grid-column: span 2; }
+  .workspace-grid { grid-template-columns: 1fr; }
+  .right-panel { grid-column: auto; }
+  .left-panel, .right-panel { min-height: 380px; }
 }
 @media (max-width: 1100px) {
   .command-bar { flex-direction: column; align-items: stretch; }
