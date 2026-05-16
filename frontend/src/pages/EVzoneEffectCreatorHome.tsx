@@ -537,8 +537,8 @@ export default function EvzonePremiumStudio(): React.ReactElement {
   const [followed, setFollowed] = React.useState<Set<string>>(() => new Set(["evzone"]));
 
   const visibleEffects = React.useMemo(() => {
-    const base = filterEffects(activeFilter);
     const query = search.trim().toLowerCase();
+    const base = query ? effects : filterEffects(activeFilter);
     if (!query) return base;
     return base.filter((effect) =>
       [effect.title, effect.description, effect.tags.join(" ")]
@@ -724,6 +724,7 @@ export default function EvzonePremiumStudio(): React.ReactElement {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              onInput={(event) => setSearch((event.target as HTMLInputElement).value)}
               placeholder="Search effects..."
             />
           </label>
