@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FaceLandmarker, FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import AutoModeRoundedIcon from '@mui/icons-material/AutoModeRounded';
@@ -58,6 +59,18 @@ type Lens = {
   overlay: LensOverlay;
   accent: string;
   filter: string;
+};
+
+type TrackingState = {
+  faceX: number;
+  faceY: number;
+  faceWidth: number;
+  faceHeight: number;
+  faceRollDeg: number;
+  shoulderY: number;
+  shoulderWidth: number;
+  torsoHeight: number;
+  ready: boolean;
 };
 
 type AdjustTool = {
@@ -252,6 +265,18 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+const DEFAULT_TRACKING: TrackingState = {
+  faceX: 0.5,
+  faceY: 0.36,
+  faceWidth: 0.28,
+  faceHeight: 0.36,
+  faceRollDeg: 0,
+  shoulderY: 0.72,
+  shoulderWidth: 0.52,
+  torsoHeight: 0.48,
+  ready: false,
+};
+
 function ToolButton({
   label,
   children,
@@ -309,25 +334,53 @@ function SimulatedScene({ className = '' }: { className?: string }) {
   );
 }
 
-function LensOverlayLayer({ lens, now }: { lens: Lens; now: Date }) {
+function LensOverlayLayer({ lens, now, tracking }: { lens: Lens; now: Date; tracking: TrackingState }) {
+  const headAnchorStyle: React.CSSProperties = {
+    left: `${tracking.faceX * 100}%`,
+    top: `${tracking.faceY * 100}%`,
+    width: `${Math.max(18, tracking.faceWidth * 100)}%`,
+    height: `${Math.max(24, tracking.faceHeight * 100)}%`,
+    transform: `translate(-50%, -50%) rotate(${tracking.faceRollDeg.toFixed(2)}deg)`,
+  };
+  const bodyAnchorStyle: React.CSSProperties = {
+    left: '50%',
+    top: `${tracking.shoulderY * 100}%`,
+    width: `${Math.max(48, tracking.shoulderWidth * 100)}%`,
+    height: `${Math.max(34, tracking.torsoHeight * 100)}%`,
+    transform: 'translate(-50%, 0)',
+  };
+  const faceFocusStyle: React.CSSProperties = {
+    left: `${tracking.faceX * 100}%`,
+    top: `${tracking.faceY * 100}%`,
+    width: `${Math.max(20, tracking.faceWidth * 100)}%`,
+    height: `${Math.max(26, tracking.faceHeight * 100)}%`,
+    transform: `translate(-50%, -50%) rotate(${tracking.faceRollDeg.toFixed(2)}deg)`,
+  };
+  const faceGuide = !tracking.ready ? <div className="snap-overlay snap-face-focus" style={faceFocusStyle} /> : null;
+  const faceEffect = <div className="snap-overlay snap-face-effect" style={faceFocusStyle} />;
+
   if (lens.overlay === 'phone-stack') {
     return (
-      <div className="snap-overlay phone-stack">
-        <div className="snap-challenge-copy">
-          <strong>Memory Challenge</strong>
-          <span>Watch carefully</span>
+      <>
+        <div className="snap-overlay phone-stack">
+          <div className="snap-challenge-copy">
+            <strong>Memory Challenge</strong>
+            <span>Watch carefully</span>
+          </div>
+          <div className="snap-phone-row">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <span key={index} className={index % 3 === 1 ? 'dark' : index % 3 === 2 ? 'light' : ''} />
+            ))}
+          </div>
+          <div className="snap-choice-row">
+            <span />
+            <button type="button">Get Lens+</button>
+            <span />
+          </div>
         </div>
-        <div className="snap-phone-row">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <span key={index} className={index % 3 === 1 ? 'dark' : index % 3 === 2 ? 'light' : ''} />
-          ))}
-        </div>
-        <div className="snap-choice-row">
-          <span />
-          <button type="button">Get Lens+</button>
-          <span />
-        </div>
-      </div>
+        {faceEffect}
+        {faceGuide}
+      </>
     );
   }
 
@@ -342,7 +395,7 @@ function LensOverlayLayer({ lens, now }: { lens: Lens; now: Date }) {
 
   if (lens.overlay === 'pink-cap') {
     return (
-      <div className="snap-overlay cap-layer">
+      <div className="snap-overlay cap-layer tracked-head" style={headAnchorStyle}>
         <span className="cap-ear left" />
         <span className="cap-ear right" />
         <span className="cap-brim" />
@@ -353,7 +406,7 @@ function LensOverlayLayer({ lens, now }: { lens: Lens; now: Date }) {
 
   if (lens.overlay === 'heart-cloud') {
     return (
-      <div className="snap-overlay heart-cloud">
+      <div className="snap-overlay heart-cloud tracked-head" style={headAnchorStyle}>
         <span>❤️</span>
         <span>💚</span>
         <span>💙</span>
@@ -371,7 +424,7 @@ function LensOverlayLayer({ lens, now }: { lens: Lens; now: Date }) {
 
   if (lens.overlay === 'baby-pop') {
     return (
-      <div className="snap-overlay baby-layer">
+      <div className="snap-overlay baby-layer tracked-head" style={headAnchorStyle}>
         <span />
       </div>
     );
@@ -387,15 +440,30 @@ function LensOverlayLayer({ lens, now }: { lens: Lens; now: Date }) {
   }
 
   if (lens.overlay === 'vivid') {
-    return <div className="snap-overlay vivid-layer" />;
+    return (
+      <>
+        <div className="snap-overlay vivid-layer" />
+        <div className="snap-overlay body-fit-layer" style={bodyAnchorStyle} />
+        {faceEffect}
+        {faceGuide}
+      </>
+    );
   }
 
-  return null;
+  return (
+    <>
+      {faceEffect}
+      {faceGuide}
+    </>
+  );
 }
 
 export default function EVzoneSnapLensStudio() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
+  const trackingFrameRef = useRef<number | null>(null);
 
   const [view, setView] = useState<SnapView>('camera');
   const [activeCategory, setActiveCategory] = useState<SnapCategory>('For you');
@@ -412,6 +480,8 @@ export default function EVzoneSnapLensStudio() {
   );
   const [liked, setLiked] = useState(true);
   const [now, setNow] = useState(() => new Date());
+  const [tracking, setTracking] = useState<TrackingState>(DEFAULT_TRACKING);
+  const [saveMessage, setSaveMessage] = useState('');
 
   const activeLens = useMemo(
     () => lenses.find((lens) => lens.id === activeLensId) ?? lenses[0],
@@ -441,8 +511,111 @@ export default function EVzoneSnapLensStudio() {
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (trackingFrameRef.current) {
+        window.cancelAnimationFrame(trackingFrameRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function initTrackers() {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+        );
+        const [face, pose] = await Promise.all([
+          FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+            },
+            numFaces: 1,
+            runningMode: 'VIDEO',
+          }),
+          PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+            },
+            runningMode: 'VIDEO',
+            numPoses: 1,
+          }),
+        ]);
+        if (cancelled) return;
+        faceLandmarkerRef.current = face;
+        poseLandmarkerRef.current = pose;
+      } catch {
+        faceLandmarkerRef.current = null;
+        poseLandmarkerRef.current = null;
+      }
+    }
+    void initTrackers();
+    return () => {
+      cancelled = true;
+      faceLandmarkerRef.current?.close();
+      poseLandmarkerRef.current?.close();
+      faceLandmarkerRef.current = null;
+      poseLandmarkerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cameraActive) {
+      setTracking((current) => ({ ...current, ready: false }));
+      return;
+    }
+    const step = () => {
+      const video = videoRef.current;
+      const faceModel = faceLandmarkerRef.current;
+      const poseModel = poseLandmarkerRef.current;
+      if (video && faceModel && poseModel && video.readyState >= 2) {
+        const nowMs = performance.now();
+        const faceResult = faceModel.detectForVideo(video, nowMs);
+        const poseResult = poseModel.detectForVideo(video, nowMs);
+        const nextTracking: TrackingState = { ...DEFAULT_TRACKING };
+
+        const face = faceResult.faceLandmarks?.[0];
+        if (face && face.length > 264) {
+          const left = face[234];
+          const right = face[454];
+          const forehead = face[10];
+          const chin = face[152];
+          const dx = right.x - left.x;
+          const dy = right.y - left.y;
+          nextTracking.faceX = (left.x + right.x) / 2;
+          nextTracking.faceY = (forehead.y + chin.y) / 2;
+          nextTracking.faceWidth = Math.min(0.7, Math.max(0.14, Math.hypot(dx, dy) * 1.22));
+          nextTracking.faceHeight = Math.min(0.82, Math.max(0.2, Math.abs(chin.y - forehead.y) * 1.2));
+          nextTracking.faceRollDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+          nextTracking.ready = true;
+        }
+
+        const pose = poseResult.landmarks?.[0];
+        if (pose && pose.length > 24) {
+          const ls = pose[11];
+          const rs = pose[12];
+          const lh = pose[23];
+          const rh = pose[24];
+          if (ls && rs && lh && rh) {
+            nextTracking.shoulderY = (ls.y + rs.y) / 2;
+            nextTracking.shoulderWidth = Math.min(0.92, Math.max(0.28, Math.abs(rs.x - ls.x) * 1.34));
+            const hipY = (lh.y + rh.y) / 2;
+            nextTracking.torsoHeight = Math.min(0.7, Math.max(0.24, (hipY - nextTracking.shoulderY) * 1.58));
+            nextTracking.ready = true;
+          }
+        }
+        setTracking(nextTracking);
+      }
+      trackingFrameRef.current = window.requestAnimationFrame(step);
+    };
+    trackingFrameRef.current = window.requestAnimationFrame(step);
+    return () => {
+      if (trackingFrameRef.current) {
+        window.cancelAnimationFrame(trackingFrameRef.current);
+      }
+    };
+  }, [cameraActive]);
 
   useEffect(() => {
     if (!cameraActive || !videoRef.current || !streamRef.current) return;
@@ -489,6 +662,13 @@ export default function EVzoneSnapLensStudio() {
     void startCamera(next);
   }
 
+  function openViewWithCamera(nextView: SnapView) {
+    setView(nextView);
+    if (!cameraActive) {
+      void startCamera();
+    }
+  }
+
   function handleCameraToggle() {
     if (cameraActive) {
       stopCamera();
@@ -505,6 +685,39 @@ export default function EVzoneSnapLensStudio() {
 
   function updateValue(value: number) {
     setValues((current) => ({ ...current, [activeAdjustId]: value }));
+  }
+
+  function saveEditedFrame() {
+    const video = videoRef.current;
+    if (!video || !cameraActive || video.videoWidth === 0 || video.videoHeight === 0) {
+      setSaveMessage('Camera frame not ready yet.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setSaveMessage('Unable to save right now.');
+      return;
+    }
+    context.save();
+    context.translate(canvas.width, 0);
+    context.scale(-1, 1);
+    const captureFilter =
+      view === 'capture'
+        ? filterLooks.find((filter) => filter.id === activeFilterId)?.filter ?? 'none'
+        : view === 'camera'
+          ? `${activeLens.filter} ${adjustFilter}`
+          : adjustFilter;
+    context.filter = captureFilter;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.restore();
+    const link = document.createElement('a');
+    link.download = `evzone-edit-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    setSaveMessage('Edit saved to your device.');
   }
 
   function renderCameraFallback() {
@@ -524,13 +737,13 @@ export default function EVzoneSnapLensStudio() {
           {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
         </div>
         <div className="snap-camera-grain" />
-        <LensOverlayLayer lens={activeLens} now={now} />
+        <LensOverlayLayer lens={activeLens} now={now} tracking={tracking} />
 
         <div className="snap-left-rail">
           <button type="button" className="snap-avatar-btn" aria-label="Profile">
             <span />
           </button>
-          <LensThumbnail lens={activeLens} active={false} onClick={() => setView('stories')} />
+          <LensThumbnail lens={activeLens} active={false} onClick={() => openViewWithCamera('stories')} />
           <ToolButton label={liked ? 'Unlike' : 'Like'} onClick={() => setLiked((value) => !value)} active={liked}>
             {liked ? <FavoriteRoundedIcon /> : <FavoriteBorderRoundedIcon />}
           </ToolButton>
@@ -547,7 +760,7 @@ export default function EVzoneSnapLensStudio() {
           <ToolButton label="Search">
             <SearchRoundedIcon />
           </ToolButton>
-          <button type="button" className="snap-sound-pill" onClick={() => setView('capture')}>
+          <button type="button" className="snap-sound-pill" onClick={() => openViewWithCamera('capture')}>
             <MusicNoteRoundedIcon />
             <span>{activeLens.creator}</span>
             <AddRoundedIcon />
@@ -574,7 +787,7 @@ export default function EVzoneSnapLensStudio() {
           <ToolButton label="Night mode">
             <DarkModeRoundedIcon />
           </ToolButton>
-          <ToolButton label="More tools" onClick={() => setView('adjust')}>
+          <ToolButton label="More tools" onClick={() => openViewWithCamera('adjust')}>
             <KeyboardArrowDownRoundedIcon />
           </ToolButton>
         </div>
@@ -604,7 +817,7 @@ export default function EVzoneSnapLensStudio() {
           </div>
         </div>
 
-        <button type="button" className="snap-memory-btn" aria-label="Memories" onClick={() => setView('capture')}>
+        <button type="button" className="snap-memory-btn" aria-label="Memories" onClick={() => openViewWithCamera('capture')}>
           <SentimentSatisfiedAltRoundedIcon />
         </button>
         <button type="button" className="snap-smile-btn" aria-label="Explore lenses">
@@ -683,15 +896,7 @@ export default function EVzoneSnapLensStudio() {
     return (
       <div className="snap-phone-screen snap-adjust-screen">
         <div className="snap-adjust-preview" style={{ filter: adjustFilter }}>
-          <div className="snap-classroom-scene">
-            <div className="snap-desk" />
-            <div className="snap-laptop" />
-            <div className="snap-student main" />
-            <div className="snap-student two" />
-            <div className="snap-student three" />
-            <div className="snap-paper one" />
-            <div className="snap-paper two" />
-          </div>
+          {cameraActive ? <video ref={videoRef} muted playsInline /> : renderCameraFallback()}
           <strong className="snap-adjust-badge">{activeTool.name}</strong>
         </div>
 
@@ -728,8 +933,10 @@ export default function EVzoneSnapLensStudio() {
             <TuneRoundedIcon className="active" />
             <ColorLensRoundedIcon />
             <CropRoundedIcon />
-            <button type="button" onClick={() => setView('camera')}>Done</button>
+            <button type="button" onClick={saveEditedFrame}>Save</button>
+            <button type="button" onClick={() => openViewWithCamera('camera')}>Done</button>
           </div>
+          {saveMessage ? <div className="snap-save-status">{saveMessage}</div> : null}
         </div>
       </div>
     );
@@ -785,9 +992,10 @@ export default function EVzoneSnapLensStudio() {
 
         <div className="snap-shutter-row">
           <button type="button" className="snap-mini-capture" aria-label="Last capture" />
-          <button type="button" className={`snap-shutter ${cameraMode === 'VIDEO' || cameraMode === 'SLO-MO' ? 'record' : ''}`} aria-label="Capture" />
+          <button type="button" className={`snap-shutter ${cameraMode === 'VIDEO' || cameraMode === 'SLO-MO' ? 'record' : ''}`} aria-label="Capture" onClick={saveEditedFrame} />
           <ToolButton label="Flip camera" onClick={flipCamera}><CameraswitchRoundedIcon /></ToolButton>
         </div>
+        {saveMessage ? <div className="snap-save-status capture">{saveMessage}</div> : null}
       </div>
     );
   }
@@ -811,7 +1019,7 @@ export default function EVzoneSnapLensStudio() {
                 key={item.id}
                 type="button"
                 className={view === item.id ? 'active' : ''}
-                onClick={() => setView(item.id)}
+                onClick={() => openViewWithCamera(item.id)}
               >
                 {item.label}
               </button>
@@ -826,11 +1034,11 @@ export default function EVzoneSnapLensStudio() {
                   key={lens.id}
                   type="button"
                   className={lens.id === activeLens.id ? 'active' : ''}
-                  onClick={() => {
-                    setActiveLensId(lens.id);
-                    setActiveCategory(lens.category);
-                    setView('camera');
-                  }}
+                    onClick={() => {
+                      setActiveLensId(lens.id);
+                      setActiveCategory(lens.category);
+                      openViewWithCamera('camera');
+                    }}
                 >
                   <span
                     className={`snap-lens-thumb ${lens.id === activeLens.id ? 'active' : ''}`}
@@ -863,7 +1071,7 @@ export default function EVzoneSnapLensStudio() {
                     className={tool.id === activeAdjustId ? 'active' : ''}
                     onClick={() => {
                       setActiveAdjustId(tool.id);
-                      setView('adjust');
+                      openViewWithCamera('adjust');
                     }}
                   >
                     <Icon />
@@ -1597,6 +1805,55 @@ const styles = `
   mix-blend-mode: screen;
 }
 
+.tracked-head {
+  transform-origin: center center;
+}
+
+.cap-layer.tracked-head {
+  width: 42%;
+  min-width: 150px;
+  max-width: 310px;
+  height: 36%;
+  min-height: 72px;
+  max-height: 180px;
+}
+
+.heart-cloud.tracked-head {
+  width: auto;
+  min-width: 58px;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(0,0,0,.28);
+}
+
+.baby-layer.tracked-head {
+  width: clamp(46px, 20%, 92px);
+  height: clamp(46px, 20%, 92px);
+}
+
+.body-fit-layer {
+  border-radius: 32px 32px 50% 50%;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255,255,255,.2), rgba(255,255,255,0) 40%),
+    linear-gradient(180deg, rgba(236,72,153,.22), rgba(14,165,233,.18) 52%, rgba(15,23,42,.05));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.24),
+    0 14px 34px rgba(0,0,0,.28);
+  backdrop-filter: blur(1.2px);
+  pointer-events: none;
+}
+
+.snap-face-focus {
+  border-radius: 46% 46% 50% 50%;
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,.38),
+    0 8px 22px rgba(0,0,0,.26);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 48%),
+    linear-gradient(180deg, rgba(56,189,248,.18), rgba(236,72,153,.14));
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
 .snap-stories-screen {
   position: relative;
   padding: 13px 12px 74px;
@@ -1824,6 +2081,13 @@ const styles = `
   background: #ddd;
 }
 
+.snap-adjust-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
 .snap-classroom-scene {
   position: absolute;
   inset: 0;
@@ -1995,7 +2259,7 @@ const styles = `
 
 .snap-edit-tabs {
   display: grid;
-  grid-template-columns: 1fr repeat(4, 44px) 1fr;
+  grid-template-columns: 1fr repeat(4, 44px) 1fr 1fr;
   align-items: center;
   gap: 12px;
   color: white;
@@ -2012,6 +2276,24 @@ const styles = `
 
 .snap-edit-tabs button:last-child {
   color: rgba(255,255,255,.32);
+}
+
+.snap-save-status {
+  margin-top: 8px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.snap-save-status.capture {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.75);
 }
 
 .snap-edit-tabs svg {
