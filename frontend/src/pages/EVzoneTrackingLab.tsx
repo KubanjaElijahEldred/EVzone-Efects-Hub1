@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LabMode =
   | "Face"
@@ -25,6 +25,14 @@ export default function EVzoneTrackingLab() {
 
   const [activeMode, setActiveMode] = useState<LabMode>("Face");
   const [previewDevice, setPreviewDevice] = useState("Studio Camera A");
+  const [showBeforeAfter, setShowBeforeAfter] = useState(false);
+  const [showSafeAreaOverlay, setShowSafeAreaOverlay] = useState(true);
+  const [showLandmarkOverlay, setShowLandmarkOverlay] = useState(true);
+  const [labCameraActive, setLabCameraActive] = useState(false);
+  const [labCameraFacing, setLabCameraFacing] = useState<"user" | "environment">("user");
+  const [labCameraError, setLabCameraError] = useState<string | null>(null);
+  const labVideoRef = useRef<HTMLVideoElement | null>(null);
+  const labCameraStreamRef = useRef<MediaStream | null>(null);
   const [toggles, setToggles] = useState<ToggleMap>({
     "Face tracking": true,
     "Face landmarks": true,
@@ -120,6 +128,85 @@ export default function EVzoneTrackingLab() {
   ];
 
   const toggle = (key: string) => setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const stopLabCamera = useCallback(() => {
+    labCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    labCameraStreamRef.current = null;
+    if (labVideoRef.current) {
+      labVideoRef.current.srcObject = null;
+    }
+    setLabCameraActive(false);
+  }, []);
+
+  const resolveLabCameraError = useCallback((error: unknown) => {
+    if (!window.isSecureContext) {
+      return "Camera needs a secure origin. Open this app on https:// or http://localhost.";
+    }
+    if (error instanceof DOMException) {
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        return "Camera permission was blocked. Allow camera access in browser site settings.";
+      }
+      if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+        return "No camera device was found.";
+      }
+      if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+        return "Camera is busy in another app or tab.";
+      }
+    }
+    return "Camera could not start. Check permissions and camera availability.";
+  }, []);
+
+  const startLabCamera = useCallback(
+    async (facing: "user" | "environment" = labCameraFacing) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setLabCameraError("Camera is unavailable in this browser context.");
+        setLabCameraActive(false);
+        return;
+      }
+
+      try {
+        setLabCameraError(null);
+        setLabCameraFacing(facing);
+        labCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        }
+
+        labCameraStreamRef.current = stream;
+        if (labVideoRef.current) {
+          labVideoRef.current.srcObject = stream;
+          const playPromise = labVideoRef.current.play();
+          if (playPromise) {
+            await playPromise.catch(() => undefined);
+          }
+        }
+        setLabCameraActive(true);
+      } catch (error) {
+        stopLabCamera();
+        setLabCameraError(resolveLabCameraError(error));
+      }
+    },
+    [labCameraFacing, resolveLabCameraError, stopLabCamera],
+  );
+
+  useEffect(() => {
+    const nextFacing = previewDevice === "Guest Camera B" ? "environment" : "user";
+    void startLabCamera(nextFacing);
+  }, [previewDevice, startLabCamera]);
+
+  useEffect(() => () => {
+    stopLabCamera();
+  }, [stopLabCamera]);
 
   const renderToggle = (label: string, caption?: string) => (
     <button
@@ -397,49 +484,84 @@ export default function EVzoneTrackingLab() {
             ))}
           </div>
 
-          <div className="preview-stage">
+          <div className={`preview-stage editor-like ${showBeforeAfter ? "before-after-on" : ""}`}>
             <div className="stage-grid" />
-            <div className="camera-frame">
-              <div className="face-model">
-                <div className="hair-shape" />
-                <div className="face-shape">
-                  {Array.from({ length: 28 }).map((_, index) => (
-                    <span
-                      key={index}
-                      className="landmark"
-                      style={{
-                        left: `${18 + ((index * 17) % 64)}%`,
-                        top: `${18 + ((index * 23) % 62)}%`,
-                      }}
-                    />
-                  ))}
-                  <div className="eye left" />
-                  <div className="eye right" />
-                  <div className="mouth" />
-                  <div className="mesh-ring" />
+            {showSafeAreaOverlay ? <div className="lab-safe-area outer" /> : null}
+            {showSafeAreaOverlay ? <div className="lab-safe-area inner" /> : null}
+            {showBeforeAfter ? <div className="before-pane"><span>Before</span></div> : null}
+            {showBeforeAfter ? <div className="before-after-divider"><span>After</span></div> : null}
+
+            <div className={`camera-frame ${showSafeAreaOverlay ? "" : "no-safe-area"}`}>
+              <video
+                ref={labVideoRef}
+                muted
+                playsInline
+                autoPlay
+                className={`lab-camera-feed ${labCameraActive ? "live" : ""} ${labCameraFacing === "user" ? "mirror" : ""}`}
+              />
+              {labCameraActive && showLandmarkOverlay ? (
+                <div className="lab-live-landmarks">
+                  <div className="live-face-ring">
+                    {Array.from({ length: 16 }).map((_, index) => (
+                      <span
+                        key={`live-point-${index}`}
+                        className="live-landmark"
+                        style={{
+                          left: `${14 + ((index * 29) % 70)}%`,
+                          top: `${18 + ((index * 19) % 62)}%`,
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="neck" />
-                <div className="shoulders" />
-              </div>
+              ) : null}
 
-              <div className="hand-skeleton">
-                <span className="palm" />
-                <span className="finger f1" />
-                <span className="finger f2" />
-                <span className="finger f3" />
-                <span className="finger f4" />
-              </div>
+              {!labCameraActive ? (
+                <>
+                  <div className="face-model">
+                    <div className="hair-shape" />
+                    <div className="face-shape">
+                      {showLandmarkOverlay
+                        ? Array.from({ length: 28 }).map((_, index) => (
+                            <span
+                              key={index}
+                              className="landmark"
+                              style={{
+                                left: `${18 + ((index * 17) % 64)}%`,
+                                top: `${18 + ((index * 23) % 62)}%`,
+                              }}
+                            />
+                          ))
+                        : null}
+                      <div className="eye left" />
+                      <div className="eye right" />
+                      <div className="mouth" />
+                      <div className="mesh-ring" />
+                    </div>
+                    <div className="neck" />
+                    <div className="shoulders" />
+                  </div>
 
-              <div className="pose-skeleton">
-                <span className="joint head" />
-                <span className="joint chest" />
-                <span className="joint hip" />
-                <span className="bone torso" />
-                <span className="bone arm-left" />
-                <span className="bone arm-right" />
-                <span className="bone leg-left" />
-                <span className="bone leg-right" />
-              </div>
+                  <div className="hand-skeleton">
+                    <span className="palm" />
+                    <span className="finger f1" />
+                    <span className="finger f2" />
+                    <span className="finger f3" />
+                    <span className="finger f4" />
+                  </div>
+
+                  <div className="pose-skeleton">
+                    <span className="joint head" />
+                    <span className="joint chest" />
+                    <span className="joint hip" />
+                    <span className="bone torso" />
+                    <span className="bone arm-left" />
+                    <span className="bone arm-right" />
+                    <span className="bone leg-left" />
+                    <span className="bone leg-right" />
+                  </div>
+                </>
+              ) : null}
 
               <div className="plane-visual">
                 <span>Plane detected</span>
@@ -448,7 +570,7 @@ export default function EVzoneTrackingLab() {
 
             <div className="preview-overlay top-left">
               <strong>{activeMode}</strong>
-              <span>{previewDevice} • Live-safe preview</span>
+              <span>{previewDevice} • {labCameraActive ? "Camera live" : "Live-safe preview"}</span>
             </div>
 
             <div className="preview-overlay bottom-left">
@@ -459,10 +581,48 @@ export default function EVzoneTrackingLab() {
             </div>
 
             <div className="preview-overlay top-right">
-              <button className="tiny-btn" data-evz-autowire="1">Before / After</button>
-              <button className="tiny-btn" data-evz-autowire="1">Safe Area</button>
-              <button className="tiny-btn" data-evz-autowire="1">Landmarks</button>
+              <button
+                type="button"
+                className={`tiny-btn ${showBeforeAfter ? "active" : ""}`}
+                onClick={() => setShowBeforeAfter((current) => !current)}
+                data-evz-autowire="1"
+              >
+                Before / After
+              </button>
+              <button
+                type="button"
+                className={`tiny-btn ${showSafeAreaOverlay ? "active" : ""}`}
+                onClick={() => setShowSafeAreaOverlay((current) => !current)}
+                data-evz-autowire="1"
+              >
+                Safe Area
+              </button>
+              <button
+                type="button"
+                className={`tiny-btn ${showLandmarkOverlay ? "active" : ""}`}
+                onClick={() => setShowLandmarkOverlay((current) => !current)}
+                data-evz-autowire="1"
+              >
+                Landmarks
+              </button>
+              <button
+                type="button"
+                className={`tiny-btn ${labCameraActive ? "active" : ""}`}
+                onClick={() => (labCameraActive ? stopLabCamera() : void startLabCamera())}
+                data-evz-autowire="1"
+              >
+                {labCameraActive ? "Stop Camera" : "Open Camera"}
+              </button>
+              <button
+                type="button"
+                className="tiny-btn"
+                onClick={() => void startLabCamera(labCameraFacing === "user" ? "environment" : "user")}
+                data-evz-autowire="1"
+              >
+                Flip Camera
+              </button>
             </div>
+            {labCameraError ? <div className="lab-camera-error">{labCameraError}</div> : null}
           </div>
 
           <div className="under-preview">
@@ -879,13 +1039,71 @@ h1, h2, h3, p { margin-top: 0; }
     radial-gradient(circle at 78% 16%, rgba(247,127,0,0.18), transparent 28%),
     var(--evz-card);
 }
+.preview-stage.editor-like {
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,0.18), 0 24px 48px rgba(15, 23, 42, 0.16);
+}
 .stage-grid {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background-image:
     linear-gradient(rgba(148,163,184,0.13) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148,163,184,0.13) 1px, transparent 1px);
   background-size: 34px 34px;
+}
+.lab-safe-area {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.8px dashed rgba(15,23,42,0.22);
+  border-radius: 18px;
+  z-index: 2;
+}
+.lab-safe-area.outer { width: 72%; height: 76%; }
+.lab-safe-area.inner { width: 58%; height: 62%; }
+.before-pane {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 3;
+  border-right: 1px solid rgba(148,163,184,0.26);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.14), rgba(15, 23, 42, 0.24));
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 16px;
+  pointer-events: none;
+}
+.before-pane span {
+  color: rgba(248,250,252,0.88);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.before-after-divider {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(3,205,140,0.65);
+  box-shadow: 0 0 0 3px rgba(3,205,140,0.1);
+  z-index: 4;
+  pointer-events: none;
+}
+.before-after-divider span {
+  position: absolute;
+  right: -48px;
+  top: 12px;
+  color: rgba(248,250,252,0.88);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .camera-frame {
   position: absolute;
@@ -893,6 +1111,11 @@ h1, h2, h3, p { margin-top: 0; }
   border-radius: 30px;
   border: 2px dashed rgba(15,23,42,0.16);
   background: var(--evz-card);
+  z-index: 5;
+}
+.camera-frame.no-safe-area {
+  border-style: solid;
+  border-color: rgba(148,163,184,0.2);
 }
 .face-model {
   position: absolute;
@@ -1058,6 +1281,7 @@ h1, h2, h3, p { margin-top: 0; }
   border: 1px solid var(--evz-border);
   backdrop-filter: blur(16px);
   box-shadow: 0 12px 24px rgba(15,23,42,0.08);
+  z-index: 9;
 }
 .preview-overlay strong { font-size: 14px; }
 .preview-overlay span { color: var(--evz-muted); font-size: 12px; }
@@ -1083,6 +1307,12 @@ h1, h2, h3, p { margin-top: 0; }
 .tiny-btn {
   padding: 8px 10px;
   font-size: 12px;
+}
+.tiny-btn.active {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--evz-green), #10b981);
+  box-shadow: 0 10px 20px rgba(3,205,140,0.22);
 }
 .under-preview {
   gap: 12px;

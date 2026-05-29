@@ -19,6 +19,25 @@ const initialEditorEffects: EditorEffect[] = [
   { id: 'echo', name: 'Time Echo', tone: 'gray', intensity: 28, on: false },
 ];
 
+const initialComponentCards = [
+  'Face Tracker',
+  'Beauty Retouch',
+  'Hand Gesture Detector',
+  'Particle Emitter',
+  'Timer',
+  'Studio Trigger',
+  'Material Switcher',
+  'Audio Reactive Pulse',
+];
+
+const initialConsoleLines = [
+  '[12:02:11] Autosave completed successfully',
+  '[12:02:18] Budget scan: 1 warning, 0 blockers',
+  '[12:02:22] Studio Bridge connected to Live Studio A',
+  '[12:02:26] Missing asset repair suggestion: replace old_countdown.mov',
+  '[12:02:31] Preview switched to Webcam',
+];
+
 export default function EVzoneEditorWorkspace() {
   const leftPanelTabs = ['Hierarchy', 'Assets', 'Components'] as const;
   const rightPanelTabs = ['Inspector', 'Preview', 'Effects'] as const;
@@ -31,18 +50,28 @@ export default function EVzoneEditorWorkspace() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [layoutName, setLayoutName] = useState('Creator Pro Layout');
   const [activeViewportMode, setActiveViewportMode] = useState<'2D' | '3D'>('3D');
+  const [showGrid, setShowGrid] = useState(true);
+  const [showSafeAreas, setShowSafeAreas] = useState(true);
+  const [lightingPreviewEnabled, setLightingPreviewEnabled] = useState(true);
+  const [renderQualityMode, setRenderQualityMode] = useState<'Balanced' | 'High'>('High');
   const [previewSource, setPreviewSource] = useState<'Webcam' | 'Studio Cam' | 'Media'>('Webcam');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [effects, setEffects] = useState<EditorEffect[]>(initialEditorEffects);
+  const [componentCards, setComponentCards] = useState(initialComponentCards);
+  const [consoleLines, setConsoleLines] = useState(initialConsoleLines);
+  const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const [viewportSource, setViewportSource] = useState<'camera' | 'upload'>('camera');
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadedImageName, setUploadedImageName] = useState<string | null>(null);
+  const [isSavingEditedImage, setIsSavingEditedImage] = useState(false);
   const viewportVideoRef = useRef<HTMLVideoElement | null>(null);
   const viewportEchoVideoRef = useRef<HTMLVideoElement | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const imageUploadInputRef = useRef<HTMLInputElement | null>(null);
   const uploadedImageObjectUrlRef = useRef<string | null>(null);
+  const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const projectMeta = {
     name: 'Morning Show Intro AR Package',
@@ -98,17 +127,6 @@ export default function EVzoneEditorWorkspace() {
     },
   ];
 
-  const components = [
-    'Face Tracker',
-    'Beauty Retouch',
-    'Hand Gesture Detector',
-    'Particle Emitter',
-    'Timer',
-    'Studio Trigger',
-    'Material Switcher',
-    'Audio Reactive Pulse',
-  ];
-
   const inspectorBlocks = [
     {
       title: 'Transform',
@@ -156,14 +174,6 @@ export default function EVzoneEditorWorkspace() {
     'Send Studio Event',
   ];
 
-  const consoleLines = [
-    '[12:02:11] Autosave completed successfully',
-    '[12:02:18] Budget scan: 1 warning, 0 blockers',
-    '[12:02:22] Studio Bridge connected to Live Studio A',
-    '[12:02:26] Missing asset repair suggestion: replace old_countdown.mov',
-    '[12:02:31] Preview switched to Webcam',
-  ];
-
   const shortcuts = [
     ['⌘/Ctrl + K', 'Open command palette'],
     ['⌘/Ctrl + S', 'Save project snapshot'],
@@ -172,6 +182,22 @@ export default function EVzoneEditorWorkspace() {
     ['1 / 2', 'Toggle 2D / 3D viewport'],
     ['⌥/Alt + L', 'Save workspace layout'],
   ];
+
+  const livePreviewFps = useMemo(
+    () => (renderQualityMode === 'High' ? 59.2 : 47.8),
+    [renderQualityMode],
+  );
+
+  const appendConsoleLine = useCallback((message: string) => {
+    const time = new Date().toLocaleTimeString([], { hour12: false });
+    setConsoleLines((current) => [`[${time}] ${message}`, ...current].slice(0, 80));
+  }, []);
+
+  const patchEffect = useCallback((effectId: EditorEffectId, patch: Partial<EditorEffect>) => {
+    setEffects((current) => current.map((effect) => (
+      effect.id === effectId ? { ...effect, ...patch } : effect
+    )));
+  }, []);
 
   const effectById = useMemo(() => {
     const map = new Map<EditorEffectId, EditorEffect>();
@@ -187,12 +213,13 @@ export default function EVzoneEditorWorkspace() {
   const echoEffect = effectById.get('echo') ?? initialEditorEffects[5];
 
   const viewportFilter = useMemo(() => {
-    const beautyBrightness = beautyEffect.on ? beautyEffect.intensity * 0.0024 : 0;
-    const beautySoften = beautyEffect.on ? beautyEffect.intensity * 0.008 : 0;
-    const lutContrast = lutEffect.on ? lutEffect.intensity * 0.0023 : 0;
-    const lutSaturation = lutEffect.on ? lutEffect.intensity * 0.0034 : 0;
+    const qualityBoost = renderQualityMode === 'High' ? 1.12 : 1;
+    const beautyBrightness = beautyEffect.on ? beautyEffect.intensity * 0.0024 * qualityBoost : 0;
+    const beautySoften = beautyEffect.on ? beautyEffect.intensity * 0.006 : 0;
+    const lutContrast = lutEffect.on ? lutEffect.intensity * 0.0023 * qualityBoost : 0;
+    const lutSaturation = lutEffect.on ? lutEffect.intensity * 0.0034 * qualityBoost : 0;
     const lutHueRotate = lutEffect.on ? Math.round(lutEffect.intensity * 0.2) : 0;
-    const backgroundBlur = blurEffect.on ? blurEffect.intensity * 0.03 : 0;
+    const backgroundBlur = blurEffect.on ? blurEffect.intensity * (renderQualityMode === 'High' ? 0.018 : 0.03) : 0;
 
     return [
       `brightness(${(1 + beautyBrightness).toFixed(3)})`,
@@ -201,7 +228,7 @@ export default function EVzoneEditorWorkspace() {
       `hue-rotate(${lutHueRotate}deg)`,
       `blur(${(beautySoften + backgroundBlur).toFixed(2)}px)`,
     ].join(' ');
-  }, [beautyEffect, blurEffect, lutEffect]);
+  }, [beautyEffect, blurEffect, lutEffect, renderQualityMode]);
 
   const showUploadedImage = Boolean(uploadedImageUrl) && viewportSource === 'upload';
   const showCameraFeed = cameraActive && viewportSource === 'camera';
@@ -212,16 +239,88 @@ export default function EVzoneEditorWorkspace() {
   const echoOffset = echoEffect.on ? Math.max(2, Math.round(echoEffect.intensity / 7)) : 0;
 
   const updateEffectToggle = useCallback((effectId: EditorEffectId, enabled: boolean) => {
-    setEffects((current) => current.map((effect) => (
-      effect.id === effectId ? { ...effect, on: enabled } : effect
-    )));
-  }, []);
+    patchEffect(effectId, { on: enabled });
+  }, [patchEffect]);
 
   const updateEffectIntensity = useCallback((effectId: EditorEffectId, intensity: number) => {
-    setEffects((current) => current.map((effect) => (
-      effect.id === effectId ? { ...effect, intensity } : effect
-    )));
+    patchEffect(effectId, { intensity });
+  }, [patchEffect]);
+
+  const toggleQualityMode = useCallback(() => {
+    setRenderQualityMode((current) => (current === 'High' ? 'Balanced' : 'High'));
   }, []);
+
+  const applyHighQualityPreset = useCallback(() => {
+    setRenderQualityMode('High');
+    setLightingPreviewEnabled(true);
+    setShowGrid(true);
+    setShowSafeAreas(true);
+    setEffects((current) => current.map((effect) => {
+      switch (effect.id) {
+        case 'beauty':
+          return { ...effect, on: true, intensity: 86 };
+        case 'lut':
+          return { ...effect, on: true, intensity: 78 };
+        case 'crown':
+          return { ...effect, on: true, intensity: 84 };
+        case 'sparkle':
+          return { ...effect, on: true, intensity: 66 };
+        case 'blur':
+          return { ...effect, on: false, intensity: 18 };
+        case 'echo':
+          return { ...effect, on: false, intensity: 10 };
+        default:
+          return effect;
+      }
+    }));
+    appendConsoleLine('High quality preset applied for cleaner and sharper output.');
+  }, [appendConsoleLine]);
+
+  const handleComponentCardClick = useCallback((componentName: string) => {
+    setSelectedComponent(componentName);
+    setRightTab('Effects');
+
+    if (componentName === 'Face Tracker') {
+      patchEffect('crown', { on: true, intensity: Math.max(crownEffect.intensity, 85) });
+    } else if (componentName === 'Beauty Retouch') {
+      patchEffect('beauty', { on: true, intensity: Math.max(beautyEffect.intensity, 88) });
+    } else if (componentName === 'Hand Gesture Detector') {
+      setBottomTab('Visual Scripting');
+    } else if (componentName === 'Particle Emitter') {
+      patchEffect('sparkle', { on: true, intensity: Math.max(sparkleEffect.intensity, 72) });
+    } else if (componentName === 'Timer') {
+      setBottomTab('Timeline');
+    } else if (componentName === 'Studio Trigger') {
+      setBottomTab('Visual Scripting');
+    } else if (componentName === 'Material Switcher') {
+      patchEffect('lut', { on: true, intensity: Math.max(lutEffect.intensity, 74) });
+    } else if (componentName === 'Audio Reactive Pulse') {
+      patchEffect('echo', { on: true, intensity: Math.max(echoEffect.intensity, 36) });
+    }
+
+    appendConsoleLine(`${componentName} component activated.`);
+  }, [
+    appendConsoleLine,
+    beautyEffect.intensity,
+    crownEffect.intensity,
+    echoEffect.intensity,
+    lutEffect.intensity,
+    patchEffect,
+    sparkleEffect.intensity,
+  ]);
+
+  const handleAddComponent = useCallback(() => {
+    setLeftTab('Components');
+    const nextName = `Custom Component ${componentCards.length + 1}`;
+    setComponentCards((current) => [...current, nextName]);
+    setSelectedComponent(nextName);
+    appendConsoleLine(`${nextName} added to component library.`);
+  }, [appendConsoleLine, componentCards.length]);
+
+  const handleAddInteraction = useCallback(() => {
+    setBottomTab('Visual Scripting');
+    appendConsoleLine('Interaction node chain opened for editing.');
+  }, [appendConsoleLine]);
 
   const stopCamera = useCallback(() => {
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -231,6 +330,9 @@ export default function EVzoneEditorWorkspace() {
     }
     if (viewportEchoVideoRef.current) {
       viewportEchoVideoRef.current.srcObject = null;
+    }
+    if (previewVideoRef.current) {
+      previewVideoRef.current.srcObject = null;
     }
     setCameraActive(false);
   }, []);
@@ -267,10 +369,14 @@ export default function EVzoneEditorWorkspace() {
       setCameraError(null);
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
 
+      const preferredVideoConstraints = renderQualityMode === 'High'
+        ? { facingMode: 'user' as const, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60, max: 60 } }
+        : { facingMode: 'user' as const, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } };
+
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: preferredVideoConstraints,
           audio: false,
         });
       } catch (primaryError) {
@@ -298,13 +404,21 @@ export default function EVzoneEditorWorkspace() {
           await playPromise.catch(() => undefined);
         }
       }
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = stream;
+        const playPromise = previewVideoRef.current.play();
+        if (playPromise) {
+          await playPromise.catch(() => undefined);
+        }
+      }
 
       setCameraActive(true);
+      appendConsoleLine(`Camera stream started (${renderQualityMode} quality mode).`);
     } catch (error) {
       stopCamera();
       setCameraError(resolveCameraErrorMessage(error));
     }
-  }, [resolveCameraErrorMessage, stopCamera]);
+  }, [appendConsoleLine, renderQualityMode, resolveCameraErrorMessage, stopCamera]);
 
   const handleViewportImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -328,8 +442,9 @@ export default function EVzoneEditorWorkspace() {
     setViewportSource('upload');
     setPreviewSource('Media');
     setCameraError(null);
+    appendConsoleLine(`Image uploaded to viewport (${file.name}).`);
     if (imageUploadInputRef.current) imageUploadInputRef.current.value = '';
-  }, []);
+  }, [appendConsoleLine]);
 
   const clearUploadedImage = useCallback(() => {
     if (uploadedImageObjectUrlRef.current) {
@@ -340,11 +455,185 @@ export default function EVzoneEditorWorkspace() {
     setUploadedImageName(null);
     setViewportSource('camera');
     setPreviewSource('Webcam');
-  }, []);
+    appendConsoleLine('Uploaded image removed from viewport.');
+  }, [appendConsoleLine]);
 
   const openImagePicker = useCallback(() => {
     imageUploadInputRef.current?.click();
   }, []);
+
+  const handlePreviewSourceChange = useCallback((source: 'Webcam' | 'Studio Cam' | 'Media') => {
+    setPreviewSource(source);
+
+    if (source === 'Media') {
+      setViewportSource('upload');
+      if (!uploadedImageUrl) {
+        setCameraError('Upload an image in the Effects tab to use Media preview source.');
+      }
+    } else {
+      setViewportSource('camera');
+      if (!cameraActive) void startCamera();
+      setCameraError(null);
+      if (source === 'Studio Cam') {
+        setRenderQualityMode('High');
+        setLightingPreviewEnabled(true);
+      }
+    }
+
+    appendConsoleLine(`Preview source switched to ${source}.`);
+  }, [appendConsoleLine, cameraActive, startCamera, uploadedImageUrl]);
+
+  const saveEditedImage = useCallback(async () => {
+    if (isSavingEditedImage) return;
+
+    try {
+      setIsSavingEditedImage(true);
+      setCameraError(null);
+
+      const loadImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Image loading failed.'));
+        image.src = url;
+      });
+
+      let sourceType: 'image' | 'video' | null = null;
+      let sourceImage: HTMLImageElement | null = null;
+      let sourceVideo: HTMLVideoElement | null = null;
+
+      if (showUploadedImage && uploadedImageUrl) {
+        sourceImage = await loadImage(uploadedImageUrl);
+        sourceType = 'image';
+      } else if (showCameraFeed && viewportVideoRef.current?.videoWidth && viewportVideoRef.current?.videoHeight) {
+        sourceVideo = viewportVideoRef.current;
+        sourceType = 'video';
+      } else if (uploadedImageUrl) {
+        sourceImage = await loadImage(uploadedImageUrl);
+        sourceType = 'image';
+      }
+
+      if (!sourceType) {
+        setCameraError('No editable preview source found. Turn camera on or upload an image first.');
+        return;
+      }
+
+      const sourceWidth = sourceType === 'image' ? sourceImage!.naturalWidth : sourceVideo!.videoWidth;
+      const sourceHeight = sourceType === 'image' ? sourceImage!.naturalHeight : sourceVideo!.videoHeight;
+
+      if (!sourceWidth || !sourceHeight) {
+        setCameraError('Preview source is not ready for export. Please try again.');
+        return;
+      }
+
+      const maxEdge = renderQualityMode === 'High' ? 2560 : 1920;
+      const scale = sourceType === 'image'
+        ? 1
+        : Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+      const exportWidth = Math.max(2, Math.round(sourceWidth * scale));
+      const exportHeight = Math.max(2, Math.round(sourceHeight * scale));
+
+      const canvas = exportCanvasRef.current ?? document.createElement('canvas');
+      exportCanvasRef.current = canvas;
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        setCameraError('Image export is unavailable in this browser.');
+        return;
+      }
+
+      context.clearRect(0, 0, exportWidth, exportHeight);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.filter = viewportFilter;
+      if (sourceType === 'image') {
+        context.drawImage(sourceImage!, 0, 0, exportWidth, exportHeight);
+      } else {
+        context.drawImage(sourceVideo!, 0, 0, exportWidth, exportHeight);
+      }
+      context.filter = 'none';
+
+      // Render key viewport overlays so saved output matches the edited result.
+      if (sparkleOpacity > 0.01) {
+        const sparkles = [
+          [0.22, 0.24, 0.018],
+          [0.68, 0.34, 0.024],
+          [0.44, 0.64, 0.02],
+          [0.8, 0.76, 0.016],
+        ];
+        sparkles.forEach(([xRatio, yRatio, radiusRatio]) => {
+          const x = exportWidth * xRatio;
+          const y = exportHeight * yRatio;
+          const radius = Math.min(exportWidth, exportHeight) * radiusRatio;
+          const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+          gradient.addColorStop(0, `rgba(255,255,255,${Math.min(0.82, sparkleOpacity + 0.12)})`);
+          gradient.addColorStop(1, 'rgba(255,255,255,0)');
+          context.fillStyle = gradient;
+          context.beginPath();
+          context.arc(x, y, radius, 0, Math.PI * 2);
+          context.fill();
+        });
+      }
+
+      if (haloOpacity > 0.01) {
+        const haloX = exportWidth * 0.52;
+        const haloY = exportHeight * 0.53;
+        const haloRadius = Math.min(exportWidth, exportHeight) * 0.16;
+        context.strokeStyle = `rgba(3, 205, 140, ${Math.min(0.45, haloOpacity + 0.14)})`;
+        context.lineWidth = Math.max(2, haloRadius * 0.016);
+        context.beginPath();
+        context.arc(haloX, haloY, haloRadius, 0, Math.PI * 2);
+        context.stroke();
+      }
+
+      if (crownOpacity > 0.01) {
+        const crownX = exportWidth * 0.5;
+        const crownY = exportHeight * 0.31;
+        const crownRadius = Math.min(exportWidth, exportHeight) * 0.084;
+        const crownGradient = context.createRadialGradient(crownX, crownY, 0, crownX, crownY, crownRadius);
+        crownGradient.addColorStop(0, `rgba(247,127,0,${Math.min(0.6, crownOpacity + 0.2)})`);
+        crownGradient.addColorStop(1, 'rgba(247,127,0,0)');
+        context.fillStyle = crownGradient;
+        context.beginPath();
+        context.arc(crownX, crownY, crownRadius, 0, Math.PI * 2);
+        context.fill();
+      }
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+
+      if (!blob) {
+        setCameraError('Could not generate image export. Please retry.');
+        return;
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = `evzone-edited-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      anchor.click();
+      URL.revokeObjectURL(downloadUrl);
+
+      appendConsoleLine(`Edited image saved (${exportWidth}x${exportHeight}).`);
+    } catch {
+      setCameraError('Failed to save edited image. Try again after preview is visible.');
+    } finally {
+      setIsSavingEditedImage(false);
+    }
+  }, [
+    appendConsoleLine,
+    crownOpacity,
+    haloOpacity,
+    isSavingEditedImage,
+    renderQualityMode,
+    showCameraFeed,
+    showUploadedImage,
+    sparkleOpacity,
+    uploadedImageUrl,
+    viewportFilter,
+  ]);
 
   useEffect(() => {
     void startCamera();
@@ -404,8 +693,14 @@ export default function EVzoneEditorWorkspace() {
 
     return (
       <div className="panel-scroll component-grid">
-        {components.map((item) => (
-          <button key={item} className="component-card" data-evz-autowire="1">
+        {componentCards.map((item) => (
+          <button
+            key={item}
+            type="button"
+            className={`component-card ${selectedComponent === item ? 'active' : ''}`}
+            onClick={() => handleComponentCardClick(item)}
+            data-evz-autowire="1"
+          >
             <span className="component-icon">◧</span>
             <span>{item}</span>
           </button>
@@ -423,7 +718,7 @@ export default function EVzoneEditorWorkspace() {
               <button
                 key={source}
                 className={`seg-btn ${previewSource === source ? 'active' : ''}`}
-                onClick={() => setPreviewSource(source)}
+                onClick={() => handlePreviewSourceChange(source)}
               >
                 {source}
               </button>
@@ -432,7 +727,31 @@ export default function EVzoneEditorWorkspace() {
           <div className="mini-preview-card">
             <div className="preview-stage small">
               <div className="device-frame">
-                <div className="preview-avatar" />
+                {previewSource === 'Media' && uploadedImageUrl ? (
+                  <img src={uploadedImageUrl} alt="Media preview" className="preview-media-image" />
+                ) : null}
+                {previewSource !== 'Media' ? (
+                  <video
+                    ref={previewVideoRef}
+                    muted
+                    playsInline
+                    autoPlay
+                    className={`preview-media-video ${cameraActive ? 'live' : ''} ${previewSource === 'Studio Cam' ? 'studio' : ''}`}
+                    style={{ filter: viewportFilter }}
+                  />
+                ) : null}
+                {previewSource === 'Media' && !uploadedImageUrl ? (
+                  <div className="preview-empty-state">
+                    <strong>No media loaded</strong>
+                    <span>Upload image in Effects tab.</span>
+                  </div>
+                ) : null}
+                {previewSource !== 'Media' && !cameraActive ? (
+                  <div className="preview-empty-state">
+                    <strong>Camera unavailable</strong>
+                    <span>Turn camera on for live preview.</span>
+                  </div>
+                ) : null}
                 <div className="preview-bars">
                   <span />
                   <span />
@@ -442,9 +761,9 @@ export default function EVzoneEditorWorkspace() {
             </div>
             <div className="preview-meta-grid">
               <div><strong>Source</strong><span>{previewSource}</span></div>
-              <div><strong>FPS</strong><span>59.2</span></div>
+              <div><strong>FPS</strong><span>{livePreviewFps.toFixed(1)}</span></div>
               <div><strong>View</strong><span>Before / After</span></div>
-              <div><strong>Target</strong><span>iPhone 15 Pro</span></div>
+              <div><strong>Target</strong><span>{renderQualityMode === 'High' ? '1080p Studio' : 'Balanced Mobile'}</span></div>
             </div>
           </div>
         </div>
@@ -462,7 +781,7 @@ export default function EVzoneEditorWorkspace() {
                 className={`seg-btn ${viewportSource === 'camera' ? 'active' : ''}`}
                 onClick={() => {
                   setViewportSource('camera');
-                  setPreviewSource('Webcam');
+                  handlePreviewSourceChange('Webcam');
                 }}
               >
                 Camera
@@ -472,7 +791,7 @@ export default function EVzoneEditorWorkspace() {
                 className={`seg-btn ${viewportSource === 'upload' ? 'active' : ''}`}
                 onClick={() => {
                   setViewportSource('upload');
-                  setPreviewSource('Media');
+                  handlePreviewSourceChange('Media');
                 }}
                 disabled={!uploadedImageUrl}
               >
@@ -495,6 +814,14 @@ export default function EVzoneEditorWorkspace() {
                 disabled={!uploadedImageUrl}
               >
                 Clear Image
+              </button>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => void saveEditedImage()}
+                disabled={isSavingEditedImage || (!showCameraFeed && !uploadedImageUrl)}
+              >
+                {isSavingEditedImage ? 'Saving...' : 'Save Edited Image'}
               </button>
             </div>
             <div className="muted">
@@ -540,7 +867,9 @@ export default function EVzoneEditorWorkspace() {
               </div>
             ))}
           </div>
-          <button className="primary-btn full" data-evz-autowire="1">Create / Apply Preset</button>
+          <button type="button" className="primary-btn full" onClick={applyHighQualityPreset} data-evz-autowire="1">
+            Create / Apply Preset
+          </button>
         </div>
       );
     }
@@ -563,9 +892,9 @@ export default function EVzoneEditorWorkspace() {
         <div className="group-card">
           <div className="group-title">Quick Actions</div>
           <div className="button-row wrap">
-            <button className="ghost-btn" data-evz-autowire="1">Add Component</button>
-            <button className="ghost-btn" data-evz-autowire="1">Add Interaction</button>
-            <button className="ghost-btn" data-evz-autowire="1">Apply Preset</button>
+            <button type="button" className="ghost-btn" onClick={handleAddComponent} data-evz-autowire="1">Add Component</button>
+            <button type="button" className="ghost-btn" onClick={handleAddInteraction} data-evz-autowire="1">Add Interaction</button>
+            <button type="button" className="ghost-btn" onClick={applyHighQualityPreset} data-evz-autowire="1">Apply Preset</button>
           </div>
         </div>
       </div>
@@ -729,13 +1058,38 @@ export default function EVzoneEditorWorkspace() {
                 </button>
               </div>
               <div className="meta-strip">
-                <span className="meta-pill">Grid</span>
-                <span className="meta-pill">Safe Areas</span>
-                <span className="meta-pill">Lighting Preview</span>
-                <span className="meta-pill">FPS {projectMeta.fps}</span>
+                <button
+                  type="button"
+                  className={`meta-pill toggle ${showGrid ? 'active' : ''}`}
+                  onClick={() => setShowGrid((current) => !current)}
+                >
+                  Grid
+                </button>
+                <button
+                  type="button"
+                  className={`meta-pill toggle ${showSafeAreas ? 'active' : ''}`}
+                  onClick={() => setShowSafeAreas((current) => !current)}
+                >
+                  Safe Areas
+                </button>
+                <button
+                  type="button"
+                  className={`meta-pill toggle ${lightingPreviewEnabled ? 'active' : ''}`}
+                  onClick={() => setLightingPreviewEnabled((current) => !current)}
+                >
+                  Lighting Preview
+                </button>
+                <button
+                  type="button"
+                  className={`meta-pill toggle ${renderQualityMode === 'High' ? 'active' : ''}`}
+                  onClick={toggleQualityMode}
+                  title="Toggle output quality mode"
+                >
+                  FPS {livePreviewFps.toFixed(0)}
+                </button>
               </div>
             </div>
-            <div className={`viewport-stage ${showUploadedImage ? 'image-focus' : ''}`}>
+            <div className={`viewport-stage ${showUploadedImage ? 'image-focus' : ''} ${renderQualityMode === 'High' ? 'high-quality' : 'balanced-quality'}`}>
               <video
                 ref={viewportEchoVideoRef}
                 muted
@@ -770,11 +1124,11 @@ export default function EVzoneEditorWorkspace() {
               )}
               <div
                 className="viewport-camera-scrim"
-                style={{ opacity: showUploadedImage ? 0.24 : 1 }}
+                style={{ opacity: (showUploadedImage ? 0.24 : 1) * (lightingPreviewEnabled ? 1 : 0.36) }}
               />
-              <div className="viewport-grid" />
-              <div className="safe-area outer" />
-              <div className="safe-area inner" />
+              {showGrid && <div className="viewport-grid" />}
+              {showSafeAreas && <div className="safe-area outer" />}
+              {showSafeAreas && <div className="safe-area inner" />}
               <div className="viewport-sparkle-layer" style={{ opacity: sparkleOpacity }} />
               <div className="viewport-object crown" style={{ opacity: crownOpacity }} />
               <div className="viewport-object halo" style={{ opacity: haloOpacity }} />
@@ -805,14 +1159,23 @@ export default function EVzoneEditorWorkspace() {
                 <span className={`camera-pill ${cameraActive ? 'on' : 'off'}`}>
                   {cameraActive ? 'Camera On' : 'Camera Off'}
                 </span>
+                <span className="camera-pill quality">{renderQualityMode} Quality</span>
                 <span className="camera-pill source">
-                  {showUploadedImage ? 'Source: Uploaded Image' : showCameraFeed ? 'Source: Camera' : 'Source: None'}
+                  {showUploadedImage ? 'Source: Uploaded Image' : showCameraFeed ? `Source: ${previewSource}` : 'Source: None'}
                 </span>
                 {cameraActive ? (
                   <button type="button" className="ghost-btn camera-btn" onClick={stopCamera}>Turn Camera Off</button>
                 ) : (
                   <button type="button" className="ghost-btn camera-btn" onClick={() => void startCamera()}>Turn Camera On</button>
                 )}
+                <button
+                  type="button"
+                  className="primary-btn camera-btn"
+                  onClick={() => void saveEditedImage()}
+                  disabled={isSavingEditedImage || (!showCameraFeed && !uploadedImageUrl)}
+                >
+                  {isSavingEditedImage ? 'Saving...' : 'Save Image'}
+                </button>
               </div>
               {cameraError && <div className="camera-error">{cameraError}</div>}
             </div>
@@ -1072,6 +1435,20 @@ body { margin: 0; }
   font-size: 12px;
   font-weight: 700;
 }
+.meta-strip .meta-pill.toggle {
+  appearance: none;
+  cursor: pointer;
+  transition: 180ms ease;
+}
+.meta-strip .meta-pill.toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.1);
+}
+.meta-strip .meta-pill.toggle.active {
+  color: #f8fffc;
+  background: linear-gradient(135deg, rgba(3,205,140,0.82), rgba(16,185,129,0.72));
+  border-color: rgba(52, 211, 153, 0.5);
+}
 .meta-pill.studio {
   color: var(--evz-green);
   background: rgba(3,205,140,0.10);
@@ -1109,6 +1486,10 @@ body { margin: 0; }
   display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
   text-align: left;
 }
+.component-card.active {
+  border-color: rgba(3,205,140,0.48);
+  box-shadow: inset 0 0 0 1px rgba(3,205,140,0.35), 0 14px 24px rgba(15, 23, 42, 0.12);
+}
 .component-icon {
   width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
   background: rgba(3,205,140,0.12); color: var(--evz-green); font-weight: 800;
@@ -1125,6 +1506,12 @@ body { margin: 0; }
     radial-gradient(circle at 30% 20%, rgba(3,205,140,0.18), transparent 28%),
     radial-gradient(circle at 75% 30%, rgba(247,127,0,0.18), transparent 24%),
     linear-gradient(180deg, color-mix(in srgb, var(--evz-card-strong) 95%, transparent) 0%, color-mix(in srgb, var(--evz-card-strong) 85%, #dbe5e9 15%) 100%);
+}
+.viewport-stage.high-quality {
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,0.18), 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+.viewport-stage.balanced-quality {
+  box-shadow: inset 0 0 0 1px rgba(148,163,184,0.08), 0 14px 28px rgba(15, 23, 42, 0.12);
 }
 .viewport-stage.image-focus .viewport-grid { opacity: 0.45; }
 .viewport-stage.image-focus .safe-area { opacity: 0.58; }
@@ -1274,6 +1661,11 @@ body { margin: 0; }
   background: rgba(15, 23, 42, 0.6);
   border-color: rgba(148, 163, 184, 0.42);
 }
+.camera-pill.quality {
+  color: #111827;
+  background: linear-gradient(135deg, rgba(251,191,36,0.86), rgba(249,115,22,0.74));
+  border-color: rgba(245, 158, 11, 0.5);
+}
 .camera-btn { border-radius: 999px; padding: 9px 12px; }
 .camera-error {
   position: absolute;
@@ -1293,17 +1685,63 @@ body { margin: 0; }
   background: linear-gradient(180deg, #eff6f4, #fdfefe);
   border: 1px solid var(--evz-divider-soft);
   display: grid; place-items: center;
+  position: relative;
 }
 .device-frame {
   width: 170px; height: 240px; border-radius: 32px; border: 8px solid #111827;
   background: linear-gradient(180deg, color-mix(in srgb, var(--evz-card-solid) 82%, #03cd8c 18%), color-mix(in srgb, var(--evz-card-solid) 76%, #f77f00 24%));
-  position: relative; padding: 20px;
+  position: relative;
+  padding: 20px;
+  overflow: hidden;
+}
+.preview-media-video,
+.preview-media-image {
+  position: absolute;
+  inset: 12px;
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  object-fit: cover;
+  border-radius: 24px;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.preview-media-video.live,
+.preview-media-image {
+  opacity: 1;
+}
+.preview-media-video.studio {
+  filter: contrast(1.12) saturate(1.16) brightness(1.05);
+}
+.preview-empty-state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 3;
+  display: grid;
+  gap: 4px;
+  width: calc(100% - 38px);
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #f8fafc;
+}
+.preview-empty-state strong { font-size: 11px; }
+.preview-empty-state span { font-size: 10px; color: rgba(248, 250, 252, 0.82); }
+.preview-bars {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  display: grid;
+  gap: 8px;
+  z-index: 4;
 }
 .preview-avatar {
   width: 86px; height: 86px; border-radius: 999px; margin: 24px auto 0;
   background: linear-gradient(135deg, rgba(3,205,140,0.4), rgba(247,127,0,0.4));
 }
-.preview-bars { position: absolute; bottom: 20px; left: 20px; right: 20px; display: grid; gap: 8px; }
 .preview-bars span { height: 10px; border-radius: 999px; background: rgba(15,23,42,0.12); }
 .preview-meta-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;
