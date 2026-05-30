@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type LeftTab = "VFX Presets" | "Emitters" | "Motion" | "Transitions";
 type RightTab = "Particle Editor" | "Motion Controls" | "Audio Reactive" | "Physics";
@@ -91,6 +91,11 @@ export default function EVzoneVFXMotionLab() {
     glow: 63,
     easing: 58,
   });
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("user");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   const vfxStats = useMemo(
     () => [
@@ -105,6 +110,83 @@ export default function EVzoneVFXMotionLab() {
   const updateValue = (key: keyof typeof values, value: number) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   };
+
+  const stopCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (previewVideoRef.current) {
+      previewVideoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  }, []);
+
+  const resolveCameraErrorMessage = useCallback((error: unknown) => {
+    if (!window.isSecureContext) {
+      return "Camera needs a secure origin. Open this app on https:// or http://localhost.";
+    }
+    if (error instanceof DOMException) {
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        return "Camera permission was blocked. Allow camera access in browser site settings.";
+      }
+      if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+        return "No camera device was found.";
+      }
+      if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+        return "Camera is busy in another app or tab.";
+      }
+    }
+    return "Camera could not start. Check permissions and camera availability.";
+  }, []);
+
+  const startCamera = useCallback(
+    async (facing: "user" | "environment" = cameraFacing) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Camera is unavailable in this browser context.");
+        setCameraActive(false);
+        return;
+      }
+
+      try {
+        setCameraError(null);
+        setCameraFacing(facing);
+        cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        }
+
+        cameraStreamRef.current = stream;
+        if (previewVideoRef.current) {
+          previewVideoRef.current.srcObject = stream;
+          const playPromise = previewVideoRef.current.play();
+          if (playPromise) {
+            await playPromise.catch(() => undefined);
+          }
+        }
+        setCameraActive(true);
+      } catch (error) {
+        stopCamera();
+        setCameraError(resolveCameraErrorMessage(error));
+      }
+    },
+    [cameraFacing, resolveCameraErrorMessage, stopCamera],
+  );
+
+  useEffect(() => {
+    void startCamera();
+    return () => {
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
 
   const renderSlider = (key: keyof typeof values, label: string, helper?: string) => (
     <div className="slider-card" key={key}>
@@ -427,6 +509,22 @@ export default function EVzoneVFXMotionLab() {
 
           <div className={`vfx-preview-stage ${previewMode.toLowerCase()}`}>
             <div className="stage-grid" />
+            <video
+              ref={previewVideoRef}
+              muted
+              playsInline
+              autoPlay
+              className={`lab-camera-feed ${cameraActive ? "live" : ""} ${cameraFacing === "user" ? "mirror" : ""}`}
+            />
+            {!cameraActive ? (
+              <div className="lab-camera-placeholder">
+                <strong>{cameraError ? "Camera unavailable" : "Starting camera..."}</strong>
+                <span>Allow browser camera permission to view live VFX output.</span>
+                <button type="button" className="camera-control-btn active" onClick={() => void startCamera()}>
+                  Retry Camera
+                </button>
+              </div>
+            ) : null}
             <div className="studio-frame">
               <div className="anchor-title">EVzone Live Graphics Preview</div>
               <div className="host-silhouette">
@@ -463,6 +561,22 @@ export default function EVzoneVFXMotionLab() {
               <strong>Preview Mode</strong>
               <span>{previewMode} • particle editor + graph + motion active</span>
             </div>
+            <div className="preview-card top-right camera-controls">
+              <button
+                type="button"
+                className={`camera-control-btn ${cameraActive ? "active" : ""}`}
+                onClick={() => (cameraActive ? stopCamera() : void startCamera())}
+              >
+                {cameraActive ? "Stop Camera" : "Open Camera"}
+              </button>
+              <button
+                type="button"
+                className="camera-control-btn"
+                onClick={() => void startCamera(cameraFacing === "user" ? "environment" : "user")}
+              >
+                Flip Camera
+              </button>
+            </div>
             <div className="preview-card bottom-left">
               {vfxStats.map((stat) => (
                 <div key={stat.label}>
@@ -471,6 +585,7 @@ export default function EVzoneVFXMotionLab() {
                 </div>
               ))}
             </div>
+            {cameraError ? <div className="lab-camera-error">{cameraError}</div> : null}
           </div>
 
           <div className="vfx-graph">
@@ -893,6 +1008,41 @@ small {
     radial-gradient(circle at 78% 20%, rgba(247,127,0,0.18), transparent 30%),
     var(--evz-card);
 }
+.vfx-preview-stage > .stage-grid { z-index: 1; }
+.lab-camera-feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 220ms ease;
+  filter: contrast(1.08) saturate(1.08);
+}
+.lab-camera-feed.live { opacity: 1; }
+.lab-camera-feed.mirror { transform: scaleX(-1); }
+.lab-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.34));
+}
+.lab-camera-placeholder strong {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.lab-camera-placeholder span {
+  max-width: 320px;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 13px;
+}
 .stage-grid,
 .canvas-grid {
   position: absolute;
@@ -912,6 +1062,7 @@ small {
     radial-gradient(circle at 50% 24%, rgba(3,205,140,0.18), transparent 30%),
     linear-gradient(180deg, var(--evz-frost-strong), var(--evz-frost-soft));
   box-shadow: inset 0 0 60px var(--evz-frost-soft), 0 30px 70px rgba(15,23,42,0.12);
+  z-index: 3;
 }
 .anchor-title {
   position: absolute;
@@ -1054,6 +1205,7 @@ small {
   border: 1px solid var(--evz-border);
   backdrop-filter: blur(16px);
   box-shadow: 0 14px 26px rgba(15,23,42,0.09);
+  z-index: 8;
 }
 .preview-card.top-left {
   left: 22px;
@@ -1065,6 +1217,33 @@ small {
 .preview-card.top-left span {
   color: var(--evz-muted);
   font-size: 12px;
+}
+.preview-card.top-right {
+  right: 22px;
+  top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: min(380px, calc(100% - 32px));
+}
+.camera-control-btn {
+  border: 1px solid var(--evz-line);
+  border-radius: 12px;
+  background: var(--evz-card-solid);
+  color: var(--evz-ink);
+  font-weight: 800;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 180ms ease;
+}
+.camera-control-btn:hover { transform: translateY(-1px); }
+.camera-control-btn.active {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--evz-green), #10b981);
+  box-shadow: 0 10px 20px rgba(3,205,140,0.22);
 }
 .preview-card.bottom-left {
   left: 22px;
@@ -1080,6 +1259,20 @@ small {
 }
 .preview-card .green { color: var(--evz-green); }
 .preview-card .orange { color: var(--evz-orange); }
+.lab-camera-error {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  z-index: 9;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fef2f2;
+  font-size: 12px;
+  font-weight: 700;
+}
 .vfx-graph {
   margin: 0 16px 16px;
   border-radius: 24px;
@@ -1497,9 +1690,21 @@ input[type="range"] {
   .transition-builder-grid,
   .live-graphics-grid { grid-template-columns: 1fr; }
   .preview-card.bottom-left { grid-template-columns: 1fr 1fr; right: 16px; }
+  .preview-card.top-right {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 84px;
+    max-width: none;
+  }
   .node-inspector { display: none; }
   .vfx-node { width: 140px; }
   .timeline-lane { grid-template-columns: 1fr; }
   .studio-frame { inset: 68px 18px 74px; }
+  .lab-camera-error {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
 }
 `;

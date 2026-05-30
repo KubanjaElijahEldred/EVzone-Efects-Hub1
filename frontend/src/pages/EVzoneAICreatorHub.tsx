@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createAIGeneration, type AIGenerationResult } from "../services/aiCreator";
 
 type LeftTab = "Create" | "Media AI" | "Studio Assets" | "Logic & Code" | "Quality";
@@ -137,6 +137,11 @@ export default function EVzoneAICreatorHub() {
   const [generatedResults, setGeneratedResults] = useState<AIGenerationResult[]>([]);
   const [generationMessage, setGenerationMessage] = useState("Ready to generate. Add OPENAI_API_KEY on the backend for real image output.");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [previewCameraActive, setPreviewCameraActive] = useState(false);
+  const [previewCameraFacing, setPreviewCameraFacing] = useState<"user" | "environment">("user");
+  const [previewCameraError, setPreviewCameraError] = useState<string | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const previewCameraStreamRef = useRef<MediaStream | null>(null);
 
   const readResultImage = (result?: AIGenerationResult["result"]) => {
     if (!result) return "";
@@ -163,6 +168,83 @@ export default function EVzoneAICreatorHub() {
   const updateSetting = (key: keyof typeof settings, value: number) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
+
+  const stopPreviewCamera = useCallback(() => {
+    previewCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    previewCameraStreamRef.current = null;
+    if (previewVideoRef.current) {
+      previewVideoRef.current.srcObject = null;
+    }
+    setPreviewCameraActive(false);
+  }, []);
+
+  const resolvePreviewCameraError = useCallback((error: unknown) => {
+    if (!window.isSecureContext) {
+      return "Camera needs a secure origin. Open this app on https:// or http://localhost.";
+    }
+    if (error instanceof DOMException) {
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        return "Camera permission was blocked. Allow camera access in browser site settings.";
+      }
+      if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+        return "No camera device was found.";
+      }
+      if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+        return "Camera is busy in another app or tab.";
+      }
+    }
+    return "Camera could not start. Check permissions and camera availability.";
+  }, []);
+
+  const startPreviewCamera = useCallback(
+    async (facing: "user" | "environment" = previewCameraFacing) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setPreviewCameraError("Camera is unavailable in this browser context.");
+        setPreviewCameraActive(false);
+        return;
+      }
+
+      try {
+        setPreviewCameraError(null);
+        setPreviewCameraFacing(facing);
+        previewCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        }
+
+        previewCameraStreamRef.current = stream;
+        if (previewVideoRef.current) {
+          previewVideoRef.current.srcObject = stream;
+          const playPromise = previewVideoRef.current.play();
+          if (playPromise) {
+            await playPromise.catch(() => undefined);
+          }
+        }
+        setPreviewCameraActive(true);
+      } catch (error) {
+        stopPreviewCamera();
+        setPreviewCameraError(resolvePreviewCameraError(error));
+      }
+    },
+    [previewCameraFacing, resolvePreviewCameraError, stopPreviewCamera],
+  );
+
+  useEffect(() => {
+    void startPreviewCamera();
+    return () => {
+      stopPreviewCamera();
+    };
+  }, [startPreviewCamera, stopPreviewCamera]);
 
   const resolveTarget = (): "effect" | "filter" | "background" | "overlay" | "vfx" | "material" | "script" | "node-graph" => {
     const label = `${activeTool.name} ${activeTool.type}`.toLowerCase();
@@ -638,11 +720,43 @@ export default function EVzoneAICreatorHub() {
           <div className={`ai-preview-stage ${previewMode.toLowerCase().replace(" ", "-")}`}>
             <div className="stage-grid" />
             <div className="preview-inner">
+              <video
+                ref={previewVideoRef}
+                muted
+                playsInline
+                autoPlay
+                className={`lab-camera-feed ${previewCameraActive ? "live" : ""} ${previewCameraFacing === "user" ? "mirror" : ""}`}
+              />
               {renderPreviewContent()}
+              {!previewCameraActive ? (
+                <div className="lab-camera-placeholder">
+                  <strong>{previewCameraError ? "Camera unavailable" : "Starting camera..."}</strong>
+                  <span>Allow browser camera permission to view live AI preview output.</span>
+                  <button type="button" className="camera-control-btn active" onClick={() => void startPreviewCamera()}>
+                    Retry Camera
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="preview-card top-left">
               <strong>{previewMode} Preview</strong>
               <span>{activeTool.name} • Safety + optimization enabled</span>
+            </div>
+            <div className="preview-card top-right camera-controls">
+              <button
+                type="button"
+                className={`camera-control-btn ${previewCameraActive ? "active" : ""}`}
+                onClick={() => (previewCameraActive ? stopPreviewCamera() : void startPreviewCamera())}
+              >
+                {previewCameraActive ? "Stop Camera" : "Open Camera"}
+              </button>
+              <button
+                type="button"
+                className="camera-control-btn"
+                onClick={() => void startPreviewCamera(previewCameraFacing === "user" ? "environment" : "user")}
+              >
+                Flip Camera
+              </button>
             </div>
             <div className="preview-card bottom-left">
               {metrics.map((metric) => (
@@ -652,6 +766,7 @@ export default function EVzoneAICreatorHub() {
                 </div>
               ))}
             </div>
+            {previewCameraError ? <div className="lab-camera-error">{previewCameraError}</div> : null}
           </div>
 
           <div className="results-row">
@@ -1136,6 +1251,7 @@ small {
     radial-gradient(circle at 78% 20%, rgba(247,127,0,0.18), transparent 30%),
     var(--evz-card);
 }
+.ai-preview-stage > .stage-grid { z-index: 1; }
 .stage-grid,
 .canvas-grid {
   position: absolute;
@@ -1155,6 +1271,41 @@ small {
     radial-gradient(circle at 50% 24%, rgba(3,205,140,0.18), transparent 30%),
     linear-gradient(180deg, var(--evz-frost-strong), var(--evz-frost-soft));
   box-shadow: inset 0 0 60px var(--evz-frost-soft), 0 30px 70px rgba(15,23,42,0.12);
+  z-index: 3;
+}
+.lab-camera-feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 220ms ease;
+  filter: contrast(1.08) saturate(1.08);
+}
+.lab-camera-feed.live { opacity: 1; }
+.lab-camera-feed.mirror { transform: scaleX(-1); }
+.lab-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.34));
+}
+.lab-camera-placeholder strong {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.lab-camera-placeholder span {
+  max-width: 320px;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 13px;
 }
 .effect-preview,
 .overlay-preview,
@@ -1163,6 +1314,7 @@ small {
 .generated-image-preview {
   position: absolute;
   inset: 0;
+  z-index: 2;
 }
 .generated-image-preview {
   display: grid;
@@ -1389,6 +1541,7 @@ small {
   border: 1px solid var(--evz-border);
   backdrop-filter: blur(16px);
   box-shadow: 0 14px 26px rgba(15,23,42,0.09);
+  z-index: 8;
 }
 .preview-card.top-left {
   left: 22px;
@@ -1400,6 +1553,33 @@ small {
 .preview-card.top-left span {
   color: var(--evz-muted);
   font-size: 12px;
+}
+.preview-card.top-right {
+  right: 22px;
+  top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: min(380px, calc(100% - 32px));
+}
+.camera-control-btn {
+  border: 1px solid var(--evz-line);
+  border-radius: 12px;
+  background: var(--evz-card-solid);
+  color: var(--evz-ink);
+  font-weight: 800;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 180ms ease;
+}
+.camera-control-btn:hover { transform: translateY(-1px); }
+.camera-control-btn.active {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--evz-green), #10b981);
+  box-shadow: 0 10px 20px rgba(3,205,140,0.22);
 }
 .preview-card.bottom-left {
   left: 22px;
@@ -1415,6 +1595,20 @@ small {
 }
 .preview-card .green { color: var(--evz-green); }
 .preview-card .orange { color: var(--evz-orange); }
+.lab-camera-error {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  z-index: 9;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fef2f2;
+  font-size: 12px;
+  font-weight: 700;
+}
 .results-row {
   margin: 0 16px 16px;
   display: grid;
@@ -1795,9 +1989,21 @@ input[type="range"] {
   .asset-queue-grid,
   .prompt-preset-grid { grid-template-columns: 1fr; }
   .preview-card.bottom-left { grid-template-columns: 1fr 1fr; right: 16px; }
+  .preview-card.top-right {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 84px;
+    max-width: none;
+  }
   .preview-inner { inset: 78px 18px 88px; }
   .node-inspector { display: none; }
   .ai-node { width: 138px; }
   .optimization-row { grid-template-columns: 1fr; }
+  .lab-camera-error {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
 }
 `;

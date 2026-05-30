@@ -517,50 +517,18 @@ export default function EVzoneTrackingLab() {
               ) : null}
 
               {!labCameraActive ? (
-                <>
-                  <div className="face-model">
-                    <div className="hair-shape" />
-                    <div className="face-shape">
-                      {showLandmarkOverlay
-                        ? Array.from({ length: 28 }).map((_, index) => (
-                            <span
-                              key={index}
-                              className="landmark"
-                              style={{
-                                left: `${18 + ((index * 17) % 64)}%`,
-                                top: `${18 + ((index * 23) % 62)}%`,
-                              }}
-                            />
-                          ))
-                        : null}
-                      <div className="eye left" />
-                      <div className="eye right" />
-                      <div className="mouth" />
-                      <div className="mesh-ring" />
-                    </div>
-                    <div className="neck" />
-                    <div className="shoulders" />
-                  </div>
-
-                  <div className="hand-skeleton">
-                    <span className="palm" />
-                    <span className="finger f1" />
-                    <span className="finger f2" />
-                    <span className="finger f3" />
-                    <span className="finger f4" />
-                  </div>
-
-                  <div className="pose-skeleton">
-                    <span className="joint head" />
-                    <span className="joint chest" />
-                    <span className="joint hip" />
-                    <span className="bone torso" />
-                    <span className="bone arm-left" />
-                    <span className="bone arm-right" />
-                    <span className="bone leg-left" />
-                    <span className="bone leg-right" />
-                  </div>
-                </>
+                <div className="lab-camera-placeholder">
+                  <strong>{labCameraError ? "Camera unavailable" : "Starting camera..."}</strong>
+                  <span>Allow browser camera permission to show live tracking preview.</span>
+                  <button
+                    type="button"
+                    className="tiny-btn active"
+                    onClick={() => void startLabCamera()}
+                    data-evz-autowire="1"
+                  >
+                    Retry Camera
+                  </button>
+                </div>
               ) : null}
 
               <div className="plane-visual">
@@ -1112,10 +1080,68 @@ h1, h2, h3, p { margin-top: 0; }
   border: 2px dashed rgba(15,23,42,0.16);
   background: var(--evz-card);
   z-index: 5;
+  overflow: hidden;
 }
 .camera-frame.no-safe-area {
   border-style: solid;
   border-color: rgba(148,163,184,0.2);
+}
+.lab-camera-feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  filter: contrast(1.08) saturate(1.06);
+}
+.lab-camera-feed.live { opacity: 1; }
+.lab-camera-feed.mirror { transform: scaleX(-1); }
+.lab-live-landmarks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lab-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.34));
+}
+.lab-camera-placeholder strong {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.lab-camera-placeholder span {
+  max-width: 320px;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 13px;
+}
+.live-face-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 132px;
+  height: 156px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(3,205,140,0.42);
+  border-radius: 52% 48% 48% 52%;
+  background: radial-gradient(circle at 50% 42%, rgba(3,205,140,0.09), transparent 72%);
+}
+.live-landmark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--evz-green);
+  box-shadow: 0 0 0 4px rgba(3,205,140,0.16);
 }
 .face-model {
   position: absolute;
@@ -1294,6 +1320,8 @@ h1, h2, h3, p { margin-top: 0; }
 .preview-overlay.top-right {
   right: 22px;
   top: 22px;
+  flex-wrap: wrap;
+  max-width: min(420px, calc(100% - 32px));
 }
 .preview-overlay.bottom-left {
   left: 22px;
@@ -1313,6 +1341,20 @@ h1, h2, h3, p { margin-top: 0; }
   border-color: transparent;
   background: linear-gradient(135deg, var(--evz-green), #10b981);
   box-shadow: 0 10px 20px rgba(3,205,140,0.22);
+}
+.lab-camera-error {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  z-index: 10;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fef2f2;
+  font-size: 12px;
+  font-weight: 700;
 }
 .under-preview {
   gap: 12px;
@@ -1719,7 +1761,18 @@ h1, h2, h3, p { margin-top: 0; }
   .camera-frame { inset: 95px 18px 110px; }
   .hand-skeleton,
   .pose-skeleton { display: none; }
-  .preview-overlay.top-right { display: none; }
+  .preview-overlay.top-right {
+    left: 18px;
+    right: 18px;
+    top: auto;
+    bottom: 94px;
+    max-width: none;
+  }
   .preview-overlay.bottom-left { right: 18px; flex-wrap: wrap; }
+  .lab-camera-error {
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+  }
 }
 `;

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type BindingTab = "Bindings" | "Triggers" | "Control Surface" | "Runtime";
 type BottomTab = "Asset Sync" | "Import History" | "Update Sync" | "Live-Safe Warnings";
@@ -82,6 +82,11 @@ export default function EVzoneStudioIntegrationCenter() {
   const [vfxIntensity, setVfxIntensity] = useState(68);
   const [fallbackEnabled, setFallbackEnabled] = useState(true);
   const [autoSync, setAutoSync] = useState(true);
+  const [studioCameraActive, setStudioCameraActive] = useState(false);
+  const [studioCameraFacing, setStudioCameraFacing] = useState<"user" | "environment">("user");
+  const [studioCameraError, setStudioCameraError] = useState<string | null>(null);
+  const studioPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const studioCameraStreamRef = useRef<MediaStream | null>(null);
 
   const readiness = useMemo(() => {
     let score = 94;
@@ -98,6 +103,85 @@ export default function EVzoneStudioIntegrationCenter() {
     { label: "Overlay Layer", value: overlayLayer, tone: "green" },
     { label: "Quality Mode", value: qualityMode, tone: qualityMode === "Ultra" ? "orange" : "green" },
   ];
+
+  const stopStudioCamera = useCallback(() => {
+    studioCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    studioCameraStreamRef.current = null;
+    if (studioPreviewVideoRef.current) {
+      studioPreviewVideoRef.current.srcObject = null;
+    }
+    setStudioCameraActive(false);
+  }, []);
+
+  const resolveStudioCameraError = useCallback((error: unknown) => {
+    if (!window.isSecureContext) {
+      return "Camera needs a secure origin. Open this app on https:// or http://localhost.";
+    }
+    if (error instanceof DOMException) {
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        return "Camera permission was blocked. Allow camera access in browser site settings.";
+      }
+      if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+        return "No camera device was found.";
+      }
+      if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+        return "Camera is busy in another app or tab.";
+      }
+    }
+    return "Camera could not start. Check permissions and camera availability.";
+  }, []);
+
+  const startStudioCamera = useCallback(
+    async (facing: "user" | "environment" = studioCameraFacing) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStudioCameraError("Camera is unavailable in this browser context.");
+        setStudioCameraActive(false);
+        return;
+      }
+
+      try {
+        setStudioCameraError(null);
+        setStudioCameraFacing(facing);
+        studioCameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        }
+
+        studioCameraStreamRef.current = stream;
+        if (studioPreviewVideoRef.current) {
+          studioPreviewVideoRef.current.srcObject = stream;
+          const playPromise = studioPreviewVideoRef.current.play();
+          if (playPromise) {
+            await playPromise.catch(() => undefined);
+          }
+        }
+        setStudioCameraActive(true);
+      } catch (error) {
+        stopStudioCamera();
+        setStudioCameraError(resolveStudioCameraError(error));
+      }
+    },
+    [resolveStudioCameraError, stopStudioCamera, studioCameraFacing],
+  );
+
+  useEffect(() => {
+    const nextFacing = camera === "Guest Camera" ? "environment" : "user";
+    void startStudioCamera(nextFacing);
+  }, [camera, startStudioCamera]);
+
+  useEffect(() => () => {
+    stopStudioCamera();
+  }, [stopStudioCamera]);
 
   const renderMainPanel = () => {
     if (bindingTab === "Triggers") {
@@ -453,11 +537,22 @@ export default function EVzoneStudioIntegrationCenter() {
             <div className="program-frame">
               <div className="program-label">Program Output</div>
               <div className="camera-feed">
-                <div className="host-avatar">
-                  <span className="head" />
-                  <span className="body" />
-                  <span className="glow" />
-                </div>
+                <video
+                  ref={studioPreviewVideoRef}
+                  muted
+                  playsInline
+                  autoPlay
+                  className={`studio-camera-feed ${studioCameraActive ? "live" : ""} ${studioCameraFacing === "user" ? "mirror" : ""}`}
+                />
+                {!studioCameraActive ? (
+                  <div className="lab-camera-placeholder">
+                    <strong>{studioCameraError ? "Camera unavailable" : "Starting camera..."}</strong>
+                    <span>Allow browser camera permission to show studio live preview.</span>
+                    <button type="button" className="camera-control-btn active" onClick={() => void startStudioCamera()}>
+                      Retry Camera
+                    </button>
+                  </div>
+                ) : null}
                 <div className="camera-tag">{camera}</div>
               </div>
               <div className="overlay-layer">
@@ -486,6 +581,22 @@ export default function EVzoneStudioIntegrationCenter() {
               <strong>Live Studio Preview</strong>
               <span>{qualityMode} mode • Runtime limits loaded</span>
             </div>
+            <div className="preview-card top-right camera-controls">
+              <button
+                type="button"
+                className={`camera-control-btn ${studioCameraActive ? "active" : ""}`}
+                onClick={() => (studioCameraActive ? stopStudioCamera() : void startStudioCamera())}
+              >
+                {studioCameraActive ? "Stop Camera" : "Open Camera"}
+              </button>
+              <button
+                type="button"
+                className="camera-control-btn"
+                onClick={() => void startStudioCamera(studioCameraFacing === "user" ? "environment" : "user")}
+              >
+                Flip Camera
+              </button>
+            </div>
             <div className="preview-card bottom-left">
               {bindingSummary.map((item) => (
                 <div key={item.label}>
@@ -494,6 +605,7 @@ export default function EVzoneStudioIntegrationCenter() {
                 </div>
               ))}
             </div>
+            {studioCameraError ? <div className="lab-camera-error">{studioCameraError}</div> : null}
           </div>
 
           <div className="main-workspace">
@@ -1012,6 +1124,7 @@ small {
     radial-gradient(circle at 78% 20%, rgba(247,127,0,0.18), transparent 30%),
     var(--evz-card);
 }
+.studio-preview > .stage-grid { z-index: 1; }
 .stage-grid {
   position: absolute;
   inset: 0;
@@ -1030,6 +1143,7 @@ small {
     radial-gradient(circle at 50% 24%, rgba(3,205,140,0.14), transparent 30%),
     linear-gradient(180deg, var(--evz-frost-strong), var(--evz-frost-soft));
   box-shadow: inset 0 0 60px var(--evz-frost-soft), 0 30px 70px rgba(15,23,42,0.12);
+  z-index: 3;
 }
 .program-label,
 .camera-tag,
@@ -1055,6 +1169,40 @@ small {
   background: var(--evz-card);
   display: grid;
   place-items: center;
+  overflow: hidden;
+}
+.studio-camera-feed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  filter: contrast(1.08) saturate(1.08);
+}
+.studio-camera-feed.live { opacity: 1; }
+.studio-camera-feed.mirror { transform: scaleX(-1); }
+.lab-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.34));
+}
+.lab-camera-placeholder strong {
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+.lab-camera-placeholder span {
+  max-width: 320px;
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 13px;
 }
 .host-avatar {
   position: relative;
@@ -1166,6 +1314,7 @@ small {
   border: 1px solid var(--evz-border);
   backdrop-filter: blur(16px);
   box-shadow: 0 14px 26px rgba(15,23,42,0.09);
+  z-index: 8;
 }
 .preview-card.top-left {
   left: 22px;
@@ -1178,6 +1327,33 @@ small {
   color: var(--evz-muted);
   font-size: 12px;
 }
+.preview-card.top-right {
+  right: 22px;
+  top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: min(380px, calc(100% - 32px));
+}
+.camera-control-btn {
+  border: 1px solid var(--evz-line);
+  border-radius: 12px;
+  background: var(--evz-card-solid);
+  color: var(--evz-ink);
+  font-weight: 800;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 180ms ease;
+}
+.camera-control-btn:hover { transform: translateY(-1px); }
+.camera-control-btn.active {
+  color: white;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--evz-green), #10b981);
+  box-shadow: 0 10px 20px rgba(3,205,140,0.22);
+}
 .preview-card.bottom-left {
   left: 22px;
   bottom: 22px;
@@ -1189,6 +1365,20 @@ small {
 .preview-card.bottom-left span {
   color: var(--evz-muted);
   font-size: 11px;
+}
+.lab-camera-error {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 18px;
+  z-index: 9;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.82);
+  color: #fef2f2;
+  font-size: 12px;
+  font-weight: 700;
 }
 .main-workspace {
   margin: 0 16px 16px;
@@ -1742,9 +1932,21 @@ small {
   .program-frame {
     inset: 92px 18px 118px;
   }
+  .preview-card.top-right {
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 106px;
+    max-width: none;
+  }
   .preview-card.bottom-left {
     grid-template-columns: 1fr 1fr;
     right: 16px;
+  }
+  .lab-camera-error {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
   }
   .asset-grid,
   .sync-grid,
