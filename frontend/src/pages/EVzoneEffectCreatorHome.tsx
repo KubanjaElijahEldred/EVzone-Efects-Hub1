@@ -295,6 +295,24 @@ const styles = `\n:root {\n  --evz-green: #00cc91;\n  --evz-green-2: #10e6aa;\n 
 
 
 const premiumAddOnStyles = `
+.evz-effect-card::after {
+  inset: auto 0 0 0;
+  height: 46%;
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.68));
+}
+.evz-effect-card img {
+  filter: none;
+}
+.evz-effect-card .evz-fav {
+  backdrop-filter: none;
+}
+.evz-screen-frame img {
+  opacity: 1;
+  filter: none;
+}
+.evz-screen-ribbon {
+  backdrop-filter: none;
+}
 .evz-brand-meta { display:grid; gap:2px; }
 .evz-hero-art { animation: evzHeroDrift 9s ease-in-out infinite; transform-origin: 72% 46%; will-change: transform, filter; }
 .evz-hero-motion { position:absolute; z-index:3; pointer-events:none; }
