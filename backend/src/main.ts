@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import compression from 'compression';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,24 +16,41 @@ async function bootstrap() {
   const prefix = config.get<string>('API_PREFIX') || 'api/v1';
   const isProduction = (config.get<string>('NODE_ENV') || 'development') === 'production';
   const corsOrigin = config.get<string>('EVZONE_CORS_ORIGIN') || '*';
-  const allowedOrigins = corsOrigin
+  const configuredOrigins = corsOrigin
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const exactAllowedOrigins = configuredOrigins.filter((origin) => !origin.includes('*'));
+  const wildcardAllowedOrigins = configuredOrigins
+    .filter((origin) => origin.includes('*'))
+    .map((origin) => {
+      const escapedOrigin = origin.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+      return new RegExp(`^${escapedOrigin}$`, 'i');
+    });
   const localDevOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
   const lanDevOriginPattern = /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/;
+  const vercelPreviewOriginPattern = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
   app.setGlobalPrefix(prefix);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.headers['access-control-request-private-network'] === 'true') {
+      res.header('Access-Control-Allow-Private-Network', 'true');
+    }
+    next();
+  });
+
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || corsOrigin === '*') {
         callback(null, true);
         return;
       }
-      const isExplicitlyAllowed = allowedOrigins.includes(origin);
+      const isExplicitlyAllowed = exactAllowedOrigins.includes(origin);
+      const isWildcardAllowed = wildcardAllowedOrigins.some((pattern) => pattern.test(origin));
       const isLocalDevOrigin = !isProduction && localDevOriginPattern.test(origin);
       const isLanDevOrigin = !isProduction && lanDevOriginPattern.test(origin);
-      callback(null, isExplicitlyAllowed || isLocalDevOrigin || isLanDevOrigin);
+      const isVercelPreviewOrigin = !isProduction && vercelPreviewOriginPattern.test(origin);
+      callback(null, isExplicitlyAllowed || isWildcardAllowed || isLocalDevOrigin || isLanDevOrigin || isVercelPreviewOrigin);
     },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],

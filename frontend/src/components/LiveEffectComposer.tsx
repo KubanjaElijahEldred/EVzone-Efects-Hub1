@@ -741,14 +741,6 @@ export function LiveEffectComposer({
             <video ref={videoRef} muted playsInline className="evz-hidden-video" />
             <canvas ref={canvasRef} className="evz-effect-canvas" aria-label="Live effect preview" />
             {cameraGridEnabled ? <div className="evz-camera-grid" aria-hidden="true" /> : null}
-            <div className="evz-phone-status" aria-hidden="true">
-              <strong>10:36</strong>
-              <div className="evz-phone-status-right">
-                <span className="evz-phone-signal"><i /><i /><i /></span>
-                <span className="evz-phone-wifi" />
-                <span className="evz-phone-battery">84</span>
-              </div>
-            </div>
             {!imageElement && !cameraActive && (
               <div className="evz-empty-preview">
                 <span />
@@ -1519,82 +1511,10 @@ const composerStyles = `
   display: none;
 }
 
-.evz-phone-status {
-  position: absolute;
-  z-index: 9;
-  top: 14px;
-  left: 16px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-}
-
-.evz-phone-status strong {
-  font-size: 19px;
-  font-weight: 1000;
-}
-
-.evz-phone-status-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.evz-phone-signal {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.evz-phone-signal i {
-  width: 3px;
-  border-radius: 2px;
-  background: #fff;
-}
-
-.evz-phone-signal i:nth-child(1) {
-  height: 7px;
-  opacity: .52;
-}
-
-.evz-phone-signal i:nth-child(2) {
-  height: 10px;
-  opacity: .75;
-}
-
-.evz-phone-signal i:nth-child(3) {
-  height: 13px;
-}
-
-.evz-phone-wifi {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #fff;
-  border-top-color: transparent;
-  border-left-color: transparent;
-  border-radius: 3px;
-  transform: rotate(45deg);
-  opacity: .9;
-}
-
-.evz-phone-battery {
-  min-width: 28px;
-  min-height: 16px;
-  padding: 0 5px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, .9);
-  display: inline-grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: 950;
-}
-
 .evz-camera-topbar {
   position: absolute;
   z-index: 10;
-  top: 58px;
+  top: 16px;
   left: 14px;
   right: 14px;
   display: flex;
@@ -1680,7 +1600,7 @@ const composerStyles = `
 .evz-camera-right-rail {
   position: absolute;
   z-index: 10;
-  top: 120px;
+  top: 72px;
   right: 12px;
   display: grid;
   justify-items: end;
@@ -1720,7 +1640,7 @@ const composerStyles = `
 .evz-preview-tool-panel {
   position: absolute;
   z-index: 11;
-  top: 112px;
+  top: 64px;
   left: 12px;
   right: 66px;
   max-height: calc(100% - 300px);
@@ -2565,7 +2485,7 @@ const composerStyles = `
   }
 
   .evz-camera-topbar {
-    top: 52px;
+    top: 12px;
     left: 10px;
     right: 10px;
   }
@@ -2587,14 +2507,14 @@ const composerStyles = `
   }
 
   .evz-camera-right-rail {
-    top: 108px;
+    top: 58px;
     right: 8px;
     gap: 6px;
     max-height: calc(100% - 200px);
   }
 
   .evz-preview-tool-panel {
-    top: 102px;
+    top: 54px;
     left: 8px;
     right: 56px;
     max-height: calc(100% - 248px);
