@@ -191,6 +191,22 @@ function drawContainedSource(
   return { x, y, width, height };
 }
 
+function drawCoverSource(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  zoom = 1,
+): ImageBounds {
+  const scale = Math.max(CANVAS_WIDTH / sourceWidth, CANVAS_HEIGHT / sourceHeight) * zoom;
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  const x = (CANVAS_WIDTH - width) / 2;
+  const y = (CANVAS_HEIGHT - height) / 2;
+  ctx.drawImage(source, x, y, width, height);
+  return { x, y, width, height };
+}
+
 function drawNoseReshape(
   ctx: CanvasRenderingContext2D,
   source: CanvasImageSource,
@@ -446,23 +462,27 @@ export function LiveEffectComposer({
       canvas.height = CANVAS_HEIGHT;
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      const bg = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-      bg.addColorStop(0, '#101010');
-      bg.addColorStop(0.58, '#171717');
-      bg.addColorStop(1, '#0f172a');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
       const video = videoRef.current;
       const hasCameraFrame = cameraActive && video && video.videoWidth > 0 && video.videoHeight > 0;
       const source = hasCameraFrame ? video : imageElement;
       const sourceWidth = hasCameraFrame ? video.videoWidth : imageElement?.naturalWidth;
       const sourceHeight = hasCameraFrame ? video.videoHeight : imageElement?.naturalHeight;
 
+      if (!hasCameraFrame) {
+        const bg = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        bg.addColorStop(0, '#101010');
+        bg.addColorStop(0.58, '#171717');
+        bg.addColorStop(1, '#0f172a');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      }
+
       if (source && sourceWidth && sourceHeight) {
         ctx.save();
         ctx.filter = renderFilter;
-        const bounds = drawContainedSource(ctx, source, sourceWidth, sourceHeight, zoomLevel);
+        const bounds = hasCameraFrame
+          ? drawCoverSource(ctx, source, sourceWidth, sourceHeight, zoomLevel)
+          : drawContainedSource(ctx, source, sourceWidth, sourceHeight, zoomLevel);
         drawNoseReshape(ctx, source, sourceWidth, sourceHeight, bounds, noseSize);
         ctx.restore();
 
@@ -1256,18 +1276,31 @@ const composerStyles = `
 
 .evz-hidden-video {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   opacity: 0;
   pointer-events: none;
 }
 
+.evz-camera-stage.live .evz-hidden-video {
+  opacity: 1;
+}
+
 .evz-effect-canvas {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   background: #050505;
+}
+
+.evz-camera-stage.live .evz-effect-canvas {
+  background: transparent;
 }
 
 .evz-empty-preview {

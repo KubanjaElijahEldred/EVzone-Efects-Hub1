@@ -1,4 +1,15 @@
 import React, { useMemo, useState } from "react";
+import DashboardCustomizeRoundedIcon from "@mui/icons-material/DashboardCustomizeRounded";
+import DevicesRoundedIcon from "@mui/icons-material/DevicesRounded";
+import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
+import HubRoundedIcon from "@mui/icons-material/HubRounded";
+import NotificationsActiveRoundedIcon from "@mui/icons-material/NotificationsActiveRounded";
+import PrivacyTipRoundedIcon from "@mui/icons-material/PrivacyTipRounded";
+import PsychologyAltRoundedIcon from "@mui/icons-material/PsychologyAltRounded";
+import ScienceRoundedIcon from "@mui/icons-material/ScienceRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
+import type { SvgIconComponent } from "@mui/icons-material";
 import { useEffectHubStore } from "../store/useEffectHubStore";
 
 type SectionKey =
@@ -22,17 +33,17 @@ type ToggleSetting = {
   setter: (value: boolean) => void;
 };
 
-const sections: { key: SectionKey; caption: string; icon: string }[] = [
-  { key: "General", caption: "Language, region and project defaults", icon: "GE" },
-  { key: "Workspace", caption: "Editor and workspace layouts", icon: "WS" },
-  { key: "Editor", caption: "Autosave, grid, snapping and tools", icon: "ED" },
-  { key: "Devices", caption: "Camera, microphone and preview devices", icon: "DV" },
-  { key: "Studio Bridge", caption: "Bridge, runtime limits and studio sync", icon: "SB" },
-  { key: "AI", caption: "Copilot, generation and safety defaults", icon: "AI" },
-  { key: "Storage & Backup", caption: "Cache, backups and restore points", icon: "ST" },
-  { key: "Notifications", caption: "Quality, autosave and bridge alerts", icon: "NO" },
-  { key: "Privacy & Data", caption: "Local data, history and private previews", icon: "PD" },
-  { key: "Experimental", caption: "Preview-only creator features", icon: "EX" },
+const sections: { key: SectionKey; caption: string; Icon: SvgIconComponent }[] = [
+  { key: "General", caption: "Language, region and project defaults", Icon: SettingsRoundedIcon },
+  { key: "Workspace", caption: "Editor and workspace layouts", Icon: DashboardCustomizeRoundedIcon },
+  { key: "Editor", caption: "Autosave, grid, snapping and tools", Icon: EditNoteRoundedIcon },
+  { key: "Devices", caption: "Camera, microphone and preview devices", Icon: DevicesRoundedIcon },
+  { key: "Studio Bridge", caption: "Bridge, runtime limits and studio sync", Icon: HubRoundedIcon },
+  { key: "AI", caption: "Copilot, generation and safety defaults", Icon: PsychologyAltRoundedIcon },
+  { key: "Storage & Backup", caption: "Cache, backups and restore points", Icon: StorageRoundedIcon },
+  { key: "Notifications", caption: "Quality, autosave and bridge alerts", Icon: NotificationsActiveRoundedIcon },
+  { key: "Privacy & Data", caption: "Local data, history and private previews", Icon: PrivacyTipRoundedIcon },
+  { key: "Experimental", caption: "Preview-only creator features", Icon: ScienceRoundedIcon },
 ];
 
 const shortcuts = [
@@ -514,15 +525,18 @@ export default function EVzoneSettingsCenter() {
             </div>
           </div>
           <div className="section-list">
-            {sections.map((section) => (
-              <button key={section.key} className={activeSection === section.key ? "active" : ""} onClick={() => setActiveSection(section.key)}>
-                <span>{section.icon}</span>
-                <div>
-                  <strong>{section.key}</strong>
-                  <small>{section.caption}</small>
-                </div>
-              </button>
-            ))}
+            {sections.map((section) => {
+              const Icon = section.Icon;
+              return (
+                <button key={section.key} className={activeSection === section.key ? "active" : ""} onClick={() => setActiveSection(section.key)}>
+                  <span className="section-icon-badge" aria-hidden="true"><Icon /></span>
+                  <div>
+                    <strong>{section.key}</strong>
+                    <small>{section.caption}</small>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           <div className="blocked-card">
@@ -993,6 +1007,10 @@ h1 {
   background: var(--evz-green);
   font-weight: 900;
   font-size: 12px;
+}
+.section-icon-badge svg {
+  width: 22px;
+  height: 22px;
 }
 .section-list button div {
   display: grid;
