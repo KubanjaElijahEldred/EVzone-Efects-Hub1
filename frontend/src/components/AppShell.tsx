@@ -53,10 +53,8 @@ import { toast } from 'sonner';
 const DRAWER_WIDTH = 326;
 const SIDEBAR_CONTENT_GAP = 0;
 const MOBILE_NAV_HEIGHT = 84;
-const MOBILE_NAV_SIDE_MARGIN = 12;
-const MOBILE_NAV_BOTTOM_OFFSET = 10;
-const MOBILE_NAV_BOTTOM = `calc(env(safe-area-inset-bottom) + ${MOBILE_NAV_BOTTOM_OFFSET}px)`;
-const MOBILE_NAV_RESERVE_SPACE = `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom) + ${MOBILE_NAV_BOTTOM_OFFSET + 14}px)`;
+const MOBILE_NAV_BOTTOM = 0;
+const MOBILE_NAV_RESERVE_SPACE = `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 8px)`;
 const HIDDEN_NAV_ROUTE_IDS = new Set(['new-project', 'recovery-diagnostics', 'maintenance', 'missing']);
 const ROUTE_ICON_BY_ID: Record<string, typeof HomeRoundedIcon> = {
   home: HomeRoundedIcon,
@@ -336,22 +334,25 @@ export function AppShell() {
             sx={{
               position: 'fixed',
               bottom: MOBILE_NAV_BOTTOM,
-              left: MOBILE_NAV_SIDE_MARGIN,
-              right: MOBILE_NAV_SIDE_MARGIN,
-              height: MOBILE_NAV_HEIGHT,
+              left: 0,
+              right: 0,
+              minHeight: `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom))`,
               zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              px: 1,
-              borderRadius: '24px 24px 20px 20px',
+              px: 1.25,
+              pt: 1,
+              pb: 'calc(env(safe-area-inset-bottom) + 8px)',
+              borderRadius: '24px 24px 0 0',
               border: '1px solid rgba(255,255,255,0.76)',
-              bgcolor: 'rgba(255,255,255,0.76)',
+              borderBottom: 0,
+              bgcolor: 'rgba(255,255,255,0.88)',
               backgroundImage:
-                'linear-gradient(140deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.84) 60%, rgba(247,127,0,0.09) 100%)',
-              backdropFilter: 'blur(24px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-              boxShadow: '0 22px 40px rgba(15,23,42,0.18), 0 -1px 0 rgba(3,205,140,0.20) inset',
+                'linear-gradient(140deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.88) 62%, rgba(247,127,0,0.08) 100%)',
+              backdropFilter: 'blur(18px) saturate(150%)',
+              WebkitBackdropFilter: 'blur(18px) saturate(150%)',
+              boxShadow: '0 -18px 36px rgba(15,23,42,0.14), 0 -1px 0 rgba(3,205,140,0.18) inset',
               overflow: 'hidden',
               '&::before': {
                 content: '""',

@@ -112,8 +112,8 @@ const effects = [
     "posts": "3.2M posts",
     "videos": "420K videos",
     "views": "136K",
-    "imageKey": "effect5",
-    "previewKey": "effect5",
+    "imageKey": "",
+    "previewKey": "",
     "accent": "#ffb000",
     "symbol": "\u25a3",
     "description": "Retro VHS framing with square HUD tracking, chroma drift, and creator-safe compression grain.",
@@ -305,6 +305,9 @@ const premiumAddOnStyles = `
 }
 .evz-effect-card .evz-fav {
   backdrop-filter: none;
+}
+.evz-generated-art::after {
+  background: radial-gradient(circle at 50% 44%, rgba(255,255,255,.18), transparent 34%);
 }
 .evz-screen-frame img {
   opacity: 1;
