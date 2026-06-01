@@ -13,11 +13,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
   const prefix = config.get<string>('API_PREFIX') || 'api/v1';
+  const isProduction = (config.get<string>('NODE_ENV') || 'development') === 'production';
   const corsOrigin = config.get<string>('EVZONE_CORS_ORIGIN') || '*';
   const allowedOrigins = corsOrigin
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const localDevOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
   const lanDevOriginPattern = /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}:\d+$/;
 
   app.setGlobalPrefix(prefix);
@@ -28,9 +30,13 @@ async function bootstrap() {
         return;
       }
       const isExplicitlyAllowed = allowedOrigins.includes(origin);
-      const isLanDevOrigin = lanDevOriginPattern.test(origin);
-      callback(null, isExplicitlyAllowed || isLanDevOrigin);
+      const isLocalDevOrigin = !isProduction && localDevOriginPattern.test(origin);
+      const isLanDevOrigin = !isProduction && lanDevOriginPattern.test(origin);
+      callback(null, isExplicitlyAllowed || isLocalDevOrigin || isLanDevOrigin);
     },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    optionsSuccessStatus: 204,
     credentials: false,
   });
   app.use(helmet({ contentSecurityPolicy: false }));

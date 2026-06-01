@@ -110,10 +110,11 @@ export class AiController {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
     if (!apiKey) {
       return {
-        provider: 'openai',
+        provider: 'evzone-local-fallback',
         requiresApiKey: true,
         env: 'OPENAI_API_KEY',
-        message: 'Add OPENAI_API_KEY to EVzone_Effect_Hub_Backend/.env to enable paid OpenAI image generation.',
+        message: 'OpenAI key is missing. Generated local EVzone preview image. Add OPENAI_API_KEY for paid OpenAI output.',
+        imageDataUrl: this.buildLocalFallbackImage(body, 'OpenAI key missing'),
       };
     }
 
@@ -145,12 +146,112 @@ export class AiController {
         revisedPrompt: firstImage?.revised_prompt,
       };
     } catch (error) {
+      const openAiMessage = this.extractOpenAiErrorMessage(error);
+      if (this.isOpenAiBillingOrQuotaError(error, openAiMessage)) {
+        return {
+          provider: 'evzone-local-fallback',
+          requiresApiKey: false,
+          model,
+          fallbackReason: 'billing-or-quota-limit',
+          message: `OpenAI billing/quota limit reached. Generated local EVzone preview image instead. (${openAiMessage})`,
+          imageDataUrl: this.buildLocalFallbackImage(body, 'Billing limit reached'),
+          openAiError: openAiMessage,
+        };
+      }
       return {
         provider: 'openai',
         requiresApiKey: false,
         failed: true,
-        message: error instanceof Error ? error.message : 'OpenAI image generation failed.',
+        message: openAiMessage || 'OpenAI image generation failed.',
       };
     }
+  }
+
+  private extractOpenAiErrorMessage(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+      return error.message;
+    }
+    return 'OpenAI image generation failed.';
+  }
+
+  private isOpenAiBillingOrQuotaError(error: unknown, message: string) {
+    const lowerMessage = message.toLowerCase();
+    const details =
+      error && typeof error === 'object'
+        ? (error as {
+            status?: number;
+            code?: string;
+            type?: string;
+            error?: { code?: string; type?: string; message?: string };
+          })
+        : {};
+    const errorCode = String(details.code || details.error?.code || '').toLowerCase();
+    const errorType = String(details.type || details.error?.type || '').toLowerCase();
+    const status = Number(details.status || 0);
+    const indicatesBillingText =
+      lowerMessage.includes('billing hard limit') ||
+      lowerMessage.includes('insufficient_quota') ||
+      lowerMessage.includes('exceeded your current quota') ||
+      lowerMessage.includes('quota');
+    const indicatesBillingCode =
+      errorCode === 'insufficient_quota' ||
+      errorType === 'insufficient_quota' ||
+      errorCode.includes('quota');
+    return indicatesBillingCode || (indicatesBillingText && (status === 400 || status === 402 || status === 429));
+  }
+
+  private buildLocalFallbackImage(body: AIGenerateDto, subtitle: string) {
+    const title = `EVzone ${String(body.target || 'effect').toUpperCase()} Preview`;
+    const prompt = String(body.prompt || '').trim();
+    const promptSnippet = prompt.slice(0, 110) + (prompt.length > 110 ? '...' : '');
+    const escapedTitle = this.escapeSvgText(title);
+    const escapedSubtitle = this.escapeSvgText(subtitle);
+    const escapedPrompt = this.escapeSvgText(promptSnippet || 'No prompt provided');
+    const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f2a44"/>
+      <stop offset="55%" stop-color="#114b4f"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="26%" cy="22%" r="42%">
+      <stop offset="0%" stop-color="rgba(3,205,140,0.38)"/>
+      <stop offset="100%" stop-color="rgba(3,205,140,0)"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="74%" cy="82%" r="45%">
+      <stop offset="0%" stop-color="rgba(247,127,0,0.30)"/>
+      <stop offset="100%" stop-color="rgba(247,127,0,0)"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glowA)"/>
+  <rect width="1024" height="1024" fill="url(#glowB)"/>
+  <g opacity="0.25">
+    <path d="M0 170h1024M0 340h1024M0 510h1024M0 680h1024M0 850h1024" stroke="#9ca3af" stroke-width="1"/>
+    <path d="M170 0v1024M340 0v1024M510 0v1024M680 0v1024M850 0v1024" stroke="#9ca3af" stroke-width="1"/>
+  </g>
+  <rect x="118" y="176" width="788" height="668" rx="34" fill="rgba(15,23,42,0.56)" stroke="rgba(255,255,255,0.18)"/>
+  <text x="154" y="256" fill="#03cd8c" font-family="Inter, Arial, sans-serif" font-size="40" font-weight="700">${escapedTitle}</text>
+  <text x="154" y="306" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="24" opacity="0.86">${escapedSubtitle}</text>
+  <text x="154" y="374" fill="#e5e7eb" font-family="Inter, Arial, sans-serif" font-size="22" opacity="0.9">${escapedPrompt}</text>
+  <circle cx="512" cy="560" r="104" fill="rgba(247,127,0,0.22)" stroke="rgba(247,127,0,0.7)" stroke-width="2"/>
+  <circle cx="512" cy="560" r="158" fill="none" stroke="rgba(3,205,140,0.48)" stroke-width="2"/>
+  <rect x="360" y="730" width="304" height="58" rx="29" fill="rgba(3,205,140,0.18)" stroke="rgba(3,205,140,0.72)"/>
+  <text x="512" y="767" text-anchor="middle" fill="#03cd8c" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Local Fallback Preview</text>
+</svg>`.trim();
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }
+
+  private escapeSvgText(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

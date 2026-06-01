@@ -1,16 +1,21 @@
 import React from 'react';
 import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import AutoModeRoundedIcon from '@mui/icons-material/AutoModeRounded';
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import BlurOnRoundedIcon from '@mui/icons-material/BlurOnRounded';
 import Brightness7RoundedIcon from '@mui/icons-material/Brightness7Rounded';
 import CameraAltRoundedIcon from '@mui/icons-material/CameraAltRounded';
 import CameraswitchRoundedIcon from '@mui/icons-material/CameraswitchRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ColorLensRoundedIcon from '@mui/icons-material/ColorLensRounded';
 import ContrastRoundedIcon from '@mui/icons-material/ContrastRounded';
 import CropRoundedIcon from '@mui/icons-material/CropRounded';
+import FlashOffRoundedIcon from '@mui/icons-material/FlashOffRounded';
 import FlashOnRoundedIcon from '@mui/icons-material/FlashOnRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import FilterVintageRoundedIcon from '@mui/icons-material/FilterVintageRounded';
+import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
@@ -64,10 +69,19 @@ type ImageBounds = {
   height: number;
 };
 
-const CANVAS_WIDTH = 960;
-const CANVAS_HEIGHT = 640;
+type PreviewToolPanel = 'upload' | 'effects' | 'face' | 'adjust' | 'music' | 'actions';
+
+const CANVAS_WIDTH = 720;
+const CANVAS_HEIGHT = 1280;
 
 const effectPresets: EffectPreset[] = [
+  {
+    id: 'clean-camera',
+    name: 'Clean Camera',
+    label: 'Clean',
+    colors: ['#ffffff'],
+    filter: 'none',
+  },
   {
     id: 'pink-heart',
     name: 'Pink Heart',
@@ -105,7 +119,24 @@ const effectPresets: EffectPreset[] = [
   },
 ];
 
-const cameraModes: CameraMode[] = ['TIME LAPSE', 'SLO-MO', 'VIDEO', 'PHOTO', 'PORTRAIT', 'SQUARE', 'PANO'];
+const creatorModeStrip: Array<{ mode: CameraMode; label: string }> = [
+  { mode: 'TIME LAPSE', label: '10m' },
+  { mode: 'VIDEO', label: '60s' },
+  { mode: 'SLO-MO', label: '15s' },
+  { mode: 'PHOTO', label: 'PHOTO' },
+  { mode: 'PORTRAIT', label: 'TEXT' },
+];
+
+const captureStripFilterIds = ['vivid', 'natural', 'warm', 'cool'] as const;
+
+const previewToolPanelLabels: Record<PreviewToolPanel, string> = {
+  upload: 'Upload & Camera',
+  effects: 'Filter Presets',
+  face: 'Face Editing',
+  adjust: 'Adjust',
+  music: 'Music',
+  actions: 'Save & Export',
+};
 
 const cameraFilters: CameraFilter[] = [
   { id: 'original', name: 'Original', filter: 'none', swatch: 'linear-gradient(135deg, #ffffff, #d8dee9)' },
@@ -241,6 +272,10 @@ function drawEffectOverlay(
   vignette: number,
   pulse: number,
 ) {
+  if (preset.id === 'clean-camera') {
+    return;
+  }
+
   const gradient = ctx.createRadialGradient(
     CANVAS_WIDTH / 2,
     CANVAS_HEIGHT / 2,
@@ -305,6 +340,7 @@ export function LiveEffectComposer({
 }: LiveEffectComposerProps) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const musicInputRef = React.useRef<HTMLInputElement | null>(null);
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const imageUrlRef = React.useRef<string | null>(null);
   const musicUrlRef = React.useRef<string | null>(null);
@@ -315,11 +351,11 @@ export function LiveEffectComposer({
   const [musicName, setMusicName] = React.useState('');
   const [activeEffectId, setActiveEffectId] = React.useState(effectPresets[0].id);
   const [activeColor, setActiveColor] = React.useState(effectPresets[0].colors[0]);
-  const [showPalette, setShowPalette] = React.useState(true);
+  const [showPalette, setShowPalette] = React.useState(false);
   const [noseSize, setNoseSize] = React.useState(50);
-  const [softness, setSoftness] = React.useState(58);
-  const [sparkle, setSparkle] = React.useState(62);
-  const [vignette, setVignette] = React.useState(24);
+  const [softness, setSoftness] = React.useState(0);
+  const [sparkle, setSparkle] = React.useState(0);
+  const [vignette, setVignette] = React.useState(6);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [uploadStatus, setUploadStatus] = React.useState('Upload an image to start editing.');
   const [musicPlaying, setMusicPlaying] = React.useState(false);
@@ -327,11 +363,18 @@ export function LiveEffectComposer({
   const [pulse, setPulse] = React.useState(0);
   const [cameraActive, setCameraActive] = React.useState(false);
   const [cameraFacing, setCameraFacing] = React.useState<'user' | 'environment'>('user');
-  const [cameraMode, setCameraMode] = React.useState<CameraMode>('PHOTO');
+  const [cameraMode, setCameraMode] = React.useState<CameraMode>('VIDEO');
   const [zoomLevel, setZoomLevel] = React.useState(1);
   const [snapshotUrl, setSnapshotUrl] = React.useState('');
   const [activeCameraFilterId, setActiveCameraFilterId] = React.useState('vivid');
   const [activeAdjustmentId, setActiveAdjustmentId] = React.useState('brilliance');
+  const [cameraHudCollapsed, setCameraHudCollapsed] = React.useState(false);
+  const [cameraFlashEnabled, setCameraFlashEnabled] = React.useState(false);
+  const [cameraTimerEnabled, setCameraTimerEnabled] = React.useState(false);
+  const [cameraGridEnabled, setCameraGridEnabled] = React.useState(false);
+  const [cameraBeautyEnabled, setCameraBeautyEnabled] = React.useState(true);
+  const [cameraFiltersVisible, setCameraFiltersVisible] = React.useState(true);
+  const [previewToolPanel, setPreviewToolPanel] = React.useState<PreviewToolPanel | null>(null);
   const [toolBadge, setToolBadge] = React.useState('');
   const [adjustments, setAdjustments] = React.useState<Record<string, number>>(
     () => Object.fromEntries(adjustmentTools.map((tool) => [tool.id, tool.defaultValue])),
@@ -348,6 +391,22 @@ export function LiveEffectComposer({
   const activeAdjustment = React.useMemo(
     () => adjustmentTools.find((tool) => tool.id === activeAdjustmentId) ?? adjustmentTools[0],
     [activeAdjustmentId],
+  );
+  const handleHorizontalWheel = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      event.currentTarget.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
+  }, []);
+  const togglePreviewToolPanel = React.useCallback((panel: PreviewToolPanel) => {
+    setPreviewToolPanel((current) => (current === panel ? null : panel));
+  }, []);
+  const captureStripFilters = React.useMemo(
+    () =>
+      captureStripFilterIds
+        .map((id) => cameraFilters.find((filter) => filter.id === id))
+        .filter((filter): filter is CameraFilter => Boolean(filter)),
+    [],
   );
   const activeAdjustmentValue = activeAdjustmentId === 'vignette'
     ? vignette
@@ -427,9 +486,9 @@ export function LiveEffectComposer({
         const bounds = drawContainedSource(ctx, source, sourceWidth, sourceHeight, zoomLevel);
         drawNoseReshape(ctx, source, sourceWidth, sourceHeight, bounds, noseSize);
         ctx.restore();
-      }
 
-      drawEffectOverlay(ctx, activePreset, activeColor, softness, sparkle, vignette, pulse);
+        drawEffectOverlay(ctx, activePreset, activeColor, softness, sparkle, vignette, pulse);
+      }
 
       if (cameraMode === 'SQUARE') {
         const cropSize = Math.min(CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -681,72 +740,432 @@ export function LiveEffectComposer({
           <div className={`evz-camera-stage ${cameraActive ? 'live' : ''}`}>
             <video ref={videoRef} muted playsInline className="evz-hidden-video" />
             <canvas ref={canvasRef} className="evz-effect-canvas" aria-label="Live effect preview" />
+            {cameraGridEnabled ? <div className="evz-camera-grid" aria-hidden="true" /> : null}
+            <div className="evz-phone-status" aria-hidden="true">
+              <strong>10:36</strong>
+              <div className="evz-phone-status-right">
+                <span className="evz-phone-signal"><i /><i /><i /></span>
+                <span className="evz-phone-wifi" />
+                <span className="evz-phone-battery">84</span>
+              </div>
+            </div>
             {!imageElement && !cameraActive && (
               <div className="evz-empty-preview">
-                <CameraAltRoundedIcon />
-                <strong>Upload an image or open camera</strong>
-                <span>Edits preview live here, but tool names stay out of exported images.</span>
+                <span />
               </div>
             )}
-            <div className="evz-camera-topbar" aria-label="Camera tools">
-              <button type="button" aria-label="Flash"><FlashOnRoundedIcon fontSize="small" /></button>
-              <button type="button" aria-label="Timer"><TimerRoundedIcon fontSize="small" /></button>
-              <button type="button" aria-label="Color filters"><ColorLensRoundedIcon fontSize="small" /></button>
-            </div>
-            <button type="button" className="evz-zoom-chip" onClick={() => setZoomLevel((value) => (value >= 2 ? 1 : Number((value + 0.5).toFixed(1))))}>
-              {zoomLevel}x
-            </button>
-            {toolBadge ? <div className="evz-clean-tool-badge">{toolBadge}</div> : null}
-            <div className="evz-mode-strip" aria-label="Camera modes">
-              {cameraModes.map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={cameraMode === mode ? 'active' : ''}
-                  onClick={() => {
-                    setCameraMode(mode);
-                    notify(`${mode} mode ready.`);
-                  }}
-                >
-                  {mode}
-                </button>
-              ))}
-            </div>
-            <div className="evz-filter-filmstrip" aria-label="Camera filters">
-              {cameraFilters.map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={filter.id === activeCameraFilter.id ? 'active' : ''}
-                  onClick={() => {
-                    setActiveCameraFilterId(filter.id);
-                    notify(`${filter.name} filter applied.`);
-                  }}
-                >
-                  <span style={{ background: filter.swatch }} />
-                  <small>{filter.name}</small>
-                </button>
-              ))}
-            </div>
-            <div className="evz-camera-controls" aria-label="Camera capture controls">
-              <button type="button" className="evz-last-capture" aria-label="Last capture">
-                {snapshotUrl ? <img src={snapshotUrl} alt="" /> : <CameraAltRoundedIcon fontSize="small" />}
+            <div className="evz-camera-topbar" aria-label="Camera top controls">
+              <button
+                type="button"
+                className="evz-stage-icon-btn evz-plain-icon"
+                aria-label={cameraActive ? 'Close camera' : 'Clear preview'}
+                onClick={() => {
+                  if (cameraActive) {
+                    stopCamera();
+                  } else {
+                    setImageElement(null);
+                    setImageName('');
+                    notify('Preview cleared.');
+                  }
+                }}
+              >
+                <CloseRoundedIcon />
               </button>
+              <button
+                type="button"
+                className="evz-sound-pill"
+                onClick={() => musicInputRef.current?.click()}
+                aria-label="Add sound"
+              >
+                <MusicNoteRoundedIcon fontSize="small" />
+                <span>{musicName ? 'Sound added' : 'Add sound'}</span>
+              </button>
+              <button type="button" className="evz-stage-icon-btn evz-plain-icon" aria-label="Flip camera" onClick={flipCamera}>
+                <AutorenewRoundedIcon />
+              </button>
+              <input ref={musicInputRef} type="file" accept="audio/*" className="evz-hidden-file-input" onChange={handleMusicUpload} />
+            </div>
+            <div className="evz-camera-right-rail" aria-label="Camera quick tools">
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon ${cameraFlashEnabled ? 'active' : ''}`}
+                aria-label={cameraFlashEnabled ? 'Disable flash' : 'Enable flash'}
+                onClick={() => {
+                  setCameraFlashEnabled((value) => !value);
+                  notify(cameraFlashEnabled ? 'Flash turned off.' : 'Flash turned on.');
+                }}
+              >
+                {cameraFlashEnabled ? <FlashOnRoundedIcon /> : <FlashOffRoundedIcon />}
+              </button>
+              <span className="evz-rail-separator" aria-hidden="true" />
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon ${cameraTimerEnabled ? 'active' : ''}`}
+                aria-label={cameraTimerEnabled ? 'Disable timer' : 'Enable timer'}
+                onClick={() => {
+                  setCameraTimerEnabled((value) => !value);
+                  notify(cameraTimerEnabled ? 'Timer disabled.' : '3 second timer enabled.');
+                }}
+              >
+                <TimerRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon ${cameraGridEnabled ? 'active' : ''}`}
+                aria-label={cameraGridEnabled ? 'Hide composition grid' : 'Show composition grid'}
+                onClick={() => {
+                  setCameraGridEnabled((value) => !value);
+                  notify(cameraGridEnabled ? 'Composition grid hidden.' : 'Composition grid shown.');
+                }}
+              >
+                <GridViewRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-beauty-btn ${cameraBeautyEnabled ? 'active' : ''}`}
+                aria-label={cameraBeautyEnabled ? 'Disable beauty assist' : 'Enable beauty assist'}
+                onClick={() => {
+                  setCameraBeautyEnabled((value) => !value);
+                  notify(cameraBeautyEnabled ? 'Beauty assist disabled.' : 'Beauty assist enabled.');
+                }}
+              >
+                <AutoFixHighRoundedIcon />
+                <span />
+              </button>
+              <span className="evz-rail-separator" aria-hidden="true" />
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon ${cameraFiltersVisible ? 'active' : ''}`}
+                aria-label={cameraFiltersVisible ? 'Hide filters' : 'Show filters'}
+                onClick={() => setCameraFiltersVisible((value) => !value)}
+              >
+                <BlurOnRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon ${cameraHudCollapsed ? 'active' : ''}`}
+                aria-label={cameraHudCollapsed ? 'Expand capture controls' : 'Collapse capture controls'}
+                onClick={() => setCameraHudCollapsed((value) => !value)}
+              >
+                <KeyboardArrowDownRoundedIcon />
+              </button>
+              <span className="evz-rail-separator" aria-hidden="true" />
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'upload' ? 'active' : ''}`}
+                aria-label="Open upload and camera tools"
+                onClick={() => togglePreviewToolPanel('upload')}
+              >
+                <CameraAltRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'effects' ? 'active' : ''}`}
+                aria-label="Open filter preset tools"
+                onClick={() => togglePreviewToolPanel('effects')}
+              >
+                <FilterVintageRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'face' ? 'active' : ''}`}
+                aria-label="Open face editing tools"
+                onClick={() => togglePreviewToolPanel('face')}
+              >
+                <WbSunnyRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'adjust' ? 'active' : ''}`}
+                aria-label="Open adjustment tools"
+                onClick={() => togglePreviewToolPanel('adjust')}
+              >
+                <TuneRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'music' ? 'active' : ''}`}
+                aria-label="Open music tools"
+                onClick={() => togglePreviewToolPanel('music')}
+              >
+                <MusicNoteRoundedIcon />
+              </button>
+              <button
+                type="button"
+                className={`evz-stage-icon-btn evz-plain-icon evz-tool-launcher ${previewToolPanel === 'actions' ? 'active' : ''}`}
+                aria-label="Open save and export tools"
+                onClick={() => togglePreviewToolPanel('actions')}
+              >
+                <FileDownloadRoundedIcon />
+              </button>
+            </div>
+            {previewToolPanel ? (
+              <div className="evz-preview-tool-panel" aria-label="Preview editing tools">
+                <div className="evz-preview-tool-head">
+                  <strong>{previewToolPanelLabels[previewToolPanel]}</strong>
+                  <button type="button" aria-label="Close tool panel" onClick={() => setPreviewToolPanel(null)}>
+                    <CloseRoundedIcon fontSize="small" />
+                  </button>
+                </div>
+
+                {previewToolPanel === 'upload' ? (
+                  <div className="evz-preview-panel-stack">
+                    <label className="evz-preview-file">
+                      <UploadFileRoundedIcon fontSize="small" />
+                      Upload image
+                      <input type="file" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                    <button type="button" className="evz-preview-action primary" onClick={() => void startCamera()}>
+                      Open camera
+                    </button>
+                    <button type="button" className="evz-preview-action" onClick={stopCamera} disabled={!cameraActive}>
+                      Close
+                    </button>
+                  </div>
+                ) : null}
+
+                {previewToolPanel === 'effects' ? (
+                  <div className="evz-preview-panel-stack">
+                    <div className="evz-preview-effect-list">
+                      {effectPresets.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          className={preset.id === activePreset.id ? 'active' : ''}
+                          onClick={() => selectEffect(preset)}
+                        >
+                          <AutoFixHighRoundedIcon fontSize="small" />
+                          <span>{preset.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="evz-preview-action" onClick={() => setShowPalette((value) => !value)}>
+                      {showPalette ? 'Hide colors' : 'Show colors'}
+                    </button>
+                    {showPalette ? (
+                      <div className="evz-preview-color-row">
+                        {activePreset.colors.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={color === activeColor ? 'active' : ''}
+                            style={{ background: color }}
+                            aria-label={`Use ${color}`}
+                            onClick={() => {
+                              setActiveColor(color);
+                              notify(`${activePreset.name} color updated.`);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {previewToolPanel === 'face' ? (
+                  <div className="evz-preview-panel-stack">
+                    <label className="evz-preview-slider">
+                      <span>Nose size</span>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        value={noseSize}
+                        onChange={(event) => {
+                          setNoseSize(Number(event.target.value));
+                          setToolBadge('Nose adjusted');
+                        }}
+                      />
+                      <b>{noseSize}%</b>
+                    </label>
+                    <label className="evz-preview-slider">
+                      <span>Softness</span>
+                      <input type="range" min="0" max="100" value={softness} onChange={(event) => setSoftness(Number(event.target.value))} />
+                      <b>{softness}%</b>
+                    </label>
+                    <label className="evz-preview-slider">
+                      <span>Sparkle</span>
+                      <input type="range" min="0" max="100" value={sparkle} onChange={(event) => setSparkle(Number(event.target.value))} />
+                      <b>{sparkle}%</b>
+                    </label>
+                    <label className="evz-preview-slider">
+                      <span>Vignette</span>
+                      <input type="range" min="0" max="70" value={vignette} onChange={(event) => setVignette(Number(event.target.value))} />
+                      <b>{vignette}%</b>
+                    </label>
+                  </div>
+                ) : null}
+
+                {previewToolPanel === 'adjust' ? (
+                  <div className="evz-preview-panel-stack">
+                    <div className="evz-preview-adjust-icons" aria-label="Adjustment tools">
+                      {adjustmentTools.map((tool) => {
+                        const Icon = tool.icon;
+                        return (
+                          <button
+                            key={tool.id}
+                            type="button"
+                            className={activeAdjustmentId === tool.id ? 'active' : ''}
+                            aria-label={tool.name}
+                            onClick={() => setActiveAdjustmentId(tool.id)}
+                          >
+                            <Icon fontSize="small" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <strong className="evz-preview-adjust-label">{activeAdjustment.name}</strong>
+                    <label className="evz-preview-slider single">
+                      <input
+                        type="range"
+                        min={activeAdjustment.min}
+                        max={activeAdjustment.max}
+                        value={activeAdjustmentValue}
+                        onChange={(event) => updateAdjustment(activeAdjustment.id, Number(event.target.value))}
+                      />
+                    </label>
+                    <div className="evz-preview-adjust-actions">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustments(Object.fromEntries(adjustmentTools.map((tool) => [tool.id, tool.defaultValue])));
+                          setVignette(6);
+                          notify('Adjustments reset.');
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button type="button" onClick={() => setActiveCameraFilterId(activeCameraFilter.id === 'vivid' ? 'natural' : 'vivid')}>
+                        Filter
+                      </button>
+                      <button type="button" onClick={() => setShowPalette((value) => !value)}>
+                        Color
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCameraMode('SQUARE');
+                          notify('Square crop guide enabled.');
+                        }}
+                      >
+                        Crop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveEffect();
+                          setPreviewToolPanel(null);
+                        }}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {previewToolPanel === 'music' ? (
+                  <div className="evz-preview-panel-stack">
+                    <label className="evz-preview-file">
+                      <MusicNoteRoundedIcon fontSize="small" />
+                      {musicName || 'Add music'}
+                      <input type="file" accept="audio/*" onChange={handleMusicUpload} />
+                    </label>
+                    <button type="button" className="evz-preview-action" onClick={toggleMusic}>
+                      {musicPlaying ? 'Pause' : 'Play'}
+                    </button>
+                    <label className="evz-preview-slider">
+                      <span>Volume</span>
+                      <input type="range" min="0" max="100" value={musicVolume} onChange={(event) => setMusicVolume(Number(event.target.value))} />
+                      <b>{musicVolume}%</b>
+                    </label>
+                  </div>
+                ) : null}
+
+                {previewToolPanel === 'actions' ? (
+                  <div className="evz-preview-panel-stack">
+                    <button type="button" className="evz-preview-action primary" onClick={saveEffect}>
+                      Save effect
+                    </button>
+                    <button type="button" className="evz-preview-action" onClick={exportImage}>
+                      Export PNG
+                    </button>
+                    <button type="button" className="evz-preview-action" onClick={onOpenEditor}>
+                      Open editor
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {toolBadge ? <div className="evz-clean-tool-badge">{toolBadge}</div> : null}
+            {!cameraHudCollapsed ? (
+              <div className="evz-mode-strip" aria-label="Camera modes" onWheel={handleHorizontalWheel}>
+                {creatorModeStrip.map((mode) => (
+                  <button
+                    key={mode.mode}
+                    type="button"
+                    className={cameraMode === mode.mode ? 'active' : ''}
+                    onClick={() => {
+                      setCameraMode(mode.mode);
+                      notify(`${mode.label} mode ready.`);
+                    }}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {!cameraHudCollapsed && cameraFiltersVisible ? (
+              <div className="evz-filter-filmstrip" aria-label="Camera filters" onWheel={handleHorizontalWheel}>
+                {captureStripFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className={filter.id === activeCameraFilter.id ? 'active' : ''}
+                    onClick={() => {
+                      setActiveCameraFilterId(filter.id);
+                      notify(`${filter.name} filter applied.`);
+                    }}
+                  >
+                    <span className={`evz-lens-avatar evz-lens-avatar-${filter.id}`} />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="evz-camera-controls" aria-label="Camera capture controls">
+              <span className="evz-capture-spacer" aria-hidden="true" />
               <button
                 type="button"
                 className={`evz-shutter ${cameraMode === 'VIDEO' || cameraMode === 'SLO-MO' || cameraMode === 'TIME LAPSE' ? 'record' : ''}`}
                 aria-label="Capture"
                 onClick={captureFrame}
               />
-              <button type="button" className="evz-flip-camera" aria-label="Flip camera" onClick={flipCamera}>
-                <CameraswitchRoundedIcon />
-              </button>
+              <span className="evz-capture-spacer" aria-hidden="true" />
             </div>
+          </div>
+          <div className="evz-post-row">
+            <button
+              type="button"
+              className="evz-post-thumb"
+              aria-label="Open recent capture"
+              onClick={() => notify(snapshotUrl ? 'Latest capture ready for posting.' : 'Capture an image first.')}
+            >
+              {snapshotUrl ? <img src={snapshotUrl} alt="" /> : <CameraAltRoundedIcon fontSize="small" />}
+            </button>
+            <strong>POST</strong>
+            <button
+              type="button"
+              className="evz-post-action"
+              aria-label={cameraActive ? 'Close camera' : 'Open camera'}
+              onClick={cameraActive ? stopCamera : () => void startCamera()}
+            >
+              {cameraActive ? 'Close' : 'Open'}
+            </button>
           </div>
           <div className="evz-upload-progress" aria-label="Upload status">
             <span style={{ width: `${uploadProgress}%` }} />
           </div>
           <p className="evz-status-line">{uploadStatus}</p>
+          <div className="evz-home-indicator" aria-hidden="true" />
         </div>
 
         <div className="evz-composer-controls">
@@ -1058,16 +1477,18 @@ const composerStyles = `
 
 .evz-canvas-panel {
   overflow: hidden;
-  border-radius: 24px;
-  border: 1px solid rgba(15, 23, 42, .12);
-  background: #0f172a;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: #000;
 }
 
 .evz-camera-stage {
   position: relative;
   min-height: 0;
-  background: #000;
+  aspect-ratio: 9 / 16;
+  background: #010101;
   isolation: isolate;
+  overflow: hidden;
 }
 
 .evz-hidden-video {
@@ -1081,91 +1502,447 @@ const composerStyles = `
 .evz-effect-canvas {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
-  background: #0f172a;
+  height: 100%;
+  object-fit: cover;
+  background: #050505;
 }
 
 .evz-empty-preview {
   position: absolute;
   inset: 0;
-  z-index: 3;
-  display: grid;
-  place-content: center;
-  gap: 8px;
-  padding: 24px;
-  text-align: center;
-  color: #fff;
+  z-index: 4;
+  background: #030303;
   pointer-events: none;
 }
 
-.evz-empty-preview svg {
-  justify-self: center;
-  font-size: 44px;
-  opacity: .8;
+.evz-empty-preview span {
+  display: none;
 }
 
-.evz-empty-preview strong {
-  font-size: 18px;
+.evz-phone-status {
+  position: absolute;
+  z-index: 9;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #fff;
+}
+
+.evz-phone-status strong {
+  font-size: 19px;
   font-weight: 1000;
 }
 
-.evz-empty-preview span {
-  max-width: 360px;
-  color: rgba(255, 255, 255, .72);
-  font-size: 12px;
-  font-weight: 800;
+.evz-phone-status-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evz-phone-signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.evz-phone-signal i {
+  width: 3px;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.evz-phone-signal i:nth-child(1) {
+  height: 7px;
+  opacity: .52;
+}
+
+.evz-phone-signal i:nth-child(2) {
+  height: 10px;
+  opacity: .75;
+}
+
+.evz-phone-signal i:nth-child(3) {
+  height: 13px;
+}
+
+.evz-phone-wifi {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-top-color: transparent;
+  border-left-color: transparent;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  opacity: .9;
+}
+
+.evz-phone-battery {
+  min-width: 28px;
+  min-height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .9);
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 950;
 }
 
 .evz-camera-topbar {
   position: absolute;
-  z-index: 5;
-  top: 14px;
-  left: 18px;
-  right: 18px;
+  z-index: 10;
+  top: 58px;
+  left: 14px;
+  right: 14px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
+  gap: 10px;
 }
 
-.evz-camera-topbar button,
+.evz-stage-icon-btn,
 .evz-zoom-chip,
 .evz-flip-camera,
-.evz-last-capture {
+.evz-last-capture,
+.evz-post-thumb,
+.evz-post-action {
   border: 0;
   color: #fff;
-  background: rgba(0, 0, 0, .35);
+  background: rgba(0, 0, 0, .38);
   backdrop-filter: blur(10px);
 }
 
-.evz-camera-topbar button {
-  width: 38px;
-  height: 38px;
+.evz-hidden-file-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+}
+
+.evz-stage-icon-btn {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, .14);
+  cursor: pointer;
 }
 
-.evz-zoom-chip {
-  position: absolute;
-  z-index: 5;
-  top: 46px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 68px;
-  height: 68px;
-  border: 2px solid rgba(255, 255, 255, .86);
+.evz-stage-icon-btn svg {
+  font-size: 30px;
+}
+
+.evz-stage-icon-btn.active {
+  color: #ffffff;
+  opacity: .82;
+}
+
+.evz-plain-icon {
+  width: 40px;
+  height: 40px;
+  flex-basis: 40px;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  color: #fff;
+}
+
+.evz-plain-icon svg {
+  font-size: 38px;
+}
+
+.evz-sound-pill {
+  min-height: 42px;
+  border: 0;
   border-radius: 999px;
-  font-size: 24px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+  background: rgba(0, 0, 0, .45);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.evz-sound-pill span {
+  white-space: nowrap;
+}
+
+.evz-camera-right-rail {
+  position: absolute;
+  z-index: 10;
+  top: 120px;
+  right: 12px;
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  max-height: calc(100% - 220px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.evz-camera-right-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.evz-camera-right-rail .evz-plain-icon {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+}
+
+.evz-camera-right-rail .evz-plain-icon svg {
+  font-size: 34px;
+}
+
+.evz-rail-separator {
+  width: 24px;
+  height: 1px;
+  background: rgba(255, 255, 255, .45);
+  margin: 2px 5px;
+}
+
+.evz-tool-launcher.active {
+  color: #34d399;
+  transform: scale(1.06);
+}
+
+.evz-preview-tool-panel {
+  position: absolute;
+  z-index: 11;
+  top: 112px;
+  left: 12px;
+  right: 66px;
+  max-height: calc(100% - 300px);
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(4, 8, 14, .82);
+  backdrop-filter: blur(16px);
+  display: grid;
+  gap: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .42);
+}
+
+.evz-preview-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evz-preview-tool-head strong {
+  color: #f8fafc;
+  font-size: 12px;
   font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.evz-preview-tool-head button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, .1);
+}
+
+.evz-preview-panel-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.evz-preview-file,
+.evz-preview-action,
+.evz-preview-effect-list button {
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, .06);
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.evz-preview-file {
+  width: 100%;
+  position: relative;
+}
+
+.evz-preview-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.evz-preview-action.primary,
+.evz-preview-effect-list button.active {
+  color: #ffffff;
+  border-color: rgba(16, 185, 129, .64);
+  background: linear-gradient(135deg, rgba(16, 185, 129, .88), rgba(5, 150, 105, .88));
+}
+
+.evz-preview-action:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.evz-preview-effect-list {
+  display: grid;
+  gap: 6px;
+}
+
+.evz-preview-effect-list button {
+  justify-content: flex-start;
+  padding: 0 10px;
+}
+
+.evz-preview-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.evz-preview-color-row button {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .78);
+}
+
+.evz-preview-color-row button.active {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, .7);
+}
+
+.evz-preview-slider {
+  display: grid;
+  grid-template-columns: 70px 1fr 42px;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.evz-preview-slider.single {
+  grid-template-columns: 1fr;
+}
+
+.evz-preview-slider input {
+  width: 100%;
+  accent-color: #facc15;
+}
+
+.evz-preview-slider b {
+  text-align: right;
+  color: #fff;
+}
+
+.evz-preview-adjust-icons {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.evz-preview-adjust-icons::-webkit-scrollbar {
+  display: none;
+}
+
+.evz-preview-adjust-icons button {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  display: grid;
+  place-items: center;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, .08);
+}
+
+.evz-preview-adjust-icons button.active {
+  color: #111827;
+  background: #facc15;
+}
+
+.evz-preview-adjust-label {
+  justify-self: center;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.evz-preview-adjust-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.evz-preview-adjust-actions button {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 8px;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, .06);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.evz-beauty-btn {
+  position: relative;
+}
+
+.evz-beauty-btn span {
+  position: absolute;
+  right: 1px;
+  bottom: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #ff2d55;
+  border: 2px solid #fff;
+}
+
+.evz-camera-grid {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, transparent calc(33.33% - .5px), rgba(255,255,255,.34) calc(33.33% - .5px), rgba(255,255,255,.34) calc(33.33% + .5px), transparent calc(33.33% + .5px)),
+    linear-gradient(to right, transparent calc(66.66% - .5px), rgba(255,255,255,.34) calc(66.66% - .5px), rgba(255,255,255,.34) calc(66.66% + .5px), transparent calc(66.66% + .5px)),
+    linear-gradient(to bottom, transparent calc(33.33% - .5px), rgba(255,255,255,.34) calc(33.33% - .5px), rgba(255,255,255,.34) calc(33.33% + .5px), transparent calc(33.33% + .5px)),
+    linear-gradient(to bottom, transparent calc(66.66% - .5px), rgba(255,255,255,.34) calc(66.66% - .5px), rgba(255,255,255,.34) calc(66.66% + .5px), transparent calc(66.66% + .5px));
 }
 
 .evz-clean-tool-badge {
   position: absolute;
-  z-index: 6;
+  z-index: 9;
   left: 50%;
-  bottom: 172px;
+  bottom: 256px;
   transform: translateX(-50%);
   min-width: 132px;
   max-width: calc(100% - 40px);
@@ -1190,17 +1967,20 @@ const composerStyles = `
 
 .evz-mode-strip {
   position: absolute;
-  z-index: 5;
+  z-index: 9;
   left: 0;
   right: 0;
-  bottom: 126px;
+  bottom: 192px;
   display: flex;
-  gap: clamp(14px, 4vw, 36px);
+  gap: 26px;
   align-items: center;
   justify-content: center;
   overflow-x: auto;
-  padding: 10px 18px;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .72));
+  overflow-y: hidden;
+  padding: 0 42px;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 
@@ -1211,103 +1991,165 @@ const composerStyles = `
 
 .evz-mode-strip button {
   border: 0;
-  color: rgba(255, 255, 255, .72);
+  color: rgba(255, 255, 255, .92);
   background: transparent;
   white-space: nowrap;
-  font-size: clamp(13px, 1.8vw, 21px);
+  font-size: clamp(21px, 2vw, 30px);
   font-weight: 1000;
-  letter-spacing: .12em;
+  letter-spacing: 0;
 }
 
 .evz-mode-strip button.active {
-  color: #ffd83d;
+  color: #090909;
+  background: #fff;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
 }
 
 .evz-filter-filmstrip {
   position: absolute;
-  z-index: 5;
+  z-index: 9;
   left: 0;
   right: 0;
-  bottom: 74px;
+  bottom: 60px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   overflow-x: auto;
-  padding: 6px 16px;
+  overflow-y: hidden;
+  padding: 0 34px;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .evz-filter-filmstrip button {
-  width: 68px;
+  width: 78px;
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, .82);
   display: grid;
   justify-items: center;
-  gap: 4px;
-  font-size: 9px;
-  font-weight: 900;
+  gap: 0;
 }
 
-.evz-filter-filmstrip button > span {
-  width: 44px;
-  height: 30px;
-  border-radius: 7px;
-  border: 2px solid rgba(255, 255, 255, .18);
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, .26);
+.evz-lens-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, .2);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .42);
+}
+
+.evz-lens-avatar-vivid {
+  background:
+    radial-gradient(circle at 56% 38%, #f3c7a5 0 23%, transparent 24%),
+    radial-gradient(circle at 48% 23%, #1f2937 0 21%, transparent 22%),
+    linear-gradient(130deg, #f472b6, #f97316 52%, #7c3aed);
+}
+
+.evz-lens-avatar-natural {
+  background:
+    radial-gradient(circle at 56% 38%, #f7d9bd 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 22%, #111827 0 21%, transparent 22%),
+    linear-gradient(130deg, #67e8f9, #38bdf8 52%, #22c55e);
+}
+
+.evz-lens-avatar-warm {
+  background:
+    radial-gradient(circle at 56% 39%, #d7a37f 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 23%, #09090b 0 21%, transparent 22%),
+    linear-gradient(130deg, #fbbf24, #fb7185 56%, #fb923c);
+}
+
+.evz-lens-avatar-cool {
+  background:
+    radial-gradient(circle at 56% 39%, #c58f66 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 24%, #0f172a 0 21%, transparent 22%),
+    linear-gradient(130deg, #818cf8, #60a5fa 52%, #1e3a8a);
 }
 
 .evz-filter-filmstrip button.active > span {
-  border-color: #fff;
-  box-shadow: 0 0 0 2px rgba(255, 216, 61, .72);
+  box-shadow: 0 0 0 3px #fff;
 }
 
 .evz-camera-controls {
   position: absolute;
-  z-index: 5;
-  left: 20px;
-  right: 20px;
-  bottom: 14px;
+  z-index: 9;
+  left: 16px;
+  right: 16px;
+  bottom: 56px;
   display: grid;
   grid-template-columns: 64px 1fr 64px;
   align-items: center;
   justify-items: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .evz-shutter {
-  width: 86px;
-  height: 86px;
+  width: 116px;
+  height: 116px;
   border-radius: 999px;
-  border: 9px solid #fff;
-  background: #fff;
-  box-shadow: inset 0 0 0 4px #050505, 0 0 0 1px rgba(255, 255, 255, .34);
+  border: 6px solid #fff;
+  background: #ff2d55;
+  box-shadow: inset 0 0 0 4px #050505, 0 0 0 2px rgba(255, 255, 255, .34);
+  cursor: pointer;
 }
 
 .evz-shutter.record {
-  background: #ff3040;
+  background: #ff2d55;
   box-shadow: inset 0 0 0 4px #050505, 0 0 0 1px rgba(255, 255, 255, .34);
 }
 
-.evz-last-capture,
-.evz-flip-camera {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, .25);
+.evz-capture-spacer {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
 }
 
-.evz-last-capture img {
+.evz-post-row {
+  min-height: 82px;
+  padding: 8px 16px;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  background: #000;
+}
+
+.evz-post-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .24);
+}
+
+.evz-post-thumb img {
   width: 100%;
   height: 100%;
-  border-radius: 12px;
+  border-radius: 10px;
   object-fit: cover;
 }
 
-.evz-flip-camera svg {
-  font-size: 34px;
+.evz-post-row strong {
+  text-align: center;
+  font-size: 41px;
+  font-weight: 1000;
+}
+
+.evz-post-action {
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 .evz-camera-open-row {
@@ -1318,9 +2160,7 @@ const composerStyles = `
 }
 
 .evz-upload-progress {
-  height: 9px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, .14);
+  display: none;
 }
 
 .evz-upload-progress span {
@@ -1332,11 +2172,15 @@ const composerStyles = `
 }
 
 .evz-status-line {
-  margin: 0;
-  padding: 12px 14px 14px;
-  color: rgba(255, 255, 255, .86);
-  font-size: 12.5px;
-  font-weight: 850;
+  display: none;
+}
+
+.evz-home-indicator {
+  width: 40%;
+  height: 5px;
+  margin: 8px auto 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .34);
 }
 
 .evz-composer-controls {
@@ -1720,42 +2564,97 @@ const composerStyles = `
     gap: 8px;
   }
 
-  .evz-zoom-chip {
-    width: 52px;
-    height: 52px;
-    top: 38px;
-    font-size: 18px;
+  .evz-camera-topbar {
+    top: 52px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .evz-plain-icon {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .evz-plain-icon svg {
+    font-size: 30px;
+  }
+
+  .evz-sound-pill {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .evz-camera-right-rail {
+    top: 108px;
+    right: 8px;
+    gap: 6px;
+    max-height: calc(100% - 200px);
+  }
+
+  .evz-preview-tool-panel {
+    top: 102px;
+    left: 8px;
+    right: 56px;
+    max-height: calc(100% - 248px);
+    padding: 10px;
+  }
+
+  .evz-preview-adjust-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .evz-mode-strip {
     justify-content: flex-start;
-    bottom: 110px;
+    bottom: 166px;
+    gap: 16px;
+    padding: 0 16px;
   }
 
   .evz-filter-filmstrip {
     justify-content: flex-start;
-    bottom: 62px;
+    bottom: 54px;
+    gap: 8px;
+    padding: 0 14px;
+  }
+
+  .evz-filter-filmstrip button {
+    width: 66px;
+  }
+
+  .evz-lens-avatar {
+    width: 58px;
+    height: 58px;
   }
 
   .evz-camera-controls {
     grid-template-columns: 48px 1fr 48px;
-    bottom: 10px;
+    bottom: 48px;
   }
 
   .evz-shutter {
-    width: 64px;
-    height: 64px;
-    border-width: 7px;
+    width: 94px;
+    height: 94px;
+    border-width: 5px;
   }
 
-  .evz-last-capture,
-  .evz-flip-camera {
-    width: 44px;
-    height: 44px;
+  .evz-capture-spacer {
+    width: 46px;
+    height: 46px;
   }
 
   .evz-clean-tool-badge {
-    bottom: 144px;
+    bottom: 218px;
+  }
+
+  .evz-post-row strong {
+    font-size: 32px;
+  }
+
+  .evz-post-action {
+    min-height: 34px;
+    padding-inline: 10px;
   }
 
   .evz-editor-toolbar {
@@ -1791,6 +2690,52 @@ const composerStyles = `
     flex: 0 0 48px;
     width: 48px;
     height: 48px;
+  }
+
+  .evz-camera-stage {
+    aspect-ratio: 9 / 16;
+  }
+
+  .evz-sound-pill span {
+    max-width: 84px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .evz-preview-slider {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .evz-post-row {
+    min-height: 66px;
+    padding: 8px 12px;
+    grid-template-columns: 46px 1fr auto;
+  }
+
+  .evz-post-thumb {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .evz-post-row strong {
+    font-size: 22px;
+  }
+
+  .evz-post-action {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .evz-preview-tool-panel {
+    right: 50px;
+    max-height: calc(100% - 230px);
+  }
+
+  .evz-preview-adjust-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .evz-editor-toolbar {

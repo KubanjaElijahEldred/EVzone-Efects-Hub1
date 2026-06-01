@@ -276,13 +276,17 @@ export default function EVzoneAICreatorHub() {
       const failed = Boolean(result.result?.failed);
       const resultMessage = typeof result.result?.message === "string" ? result.result.message : "";
       const hasImage = Boolean(readResultImage(result.result));
+      const provider = typeof result.result?.provider === "string" ? result.result.provider : "";
+      const usedLocalFallback = provider === "evzone-local-fallback";
       setGenerationMessage(
         needsKey
           ? "Backend connected. Real AI image output needs OPENAI_API_KEY in EVzone_Effect_Hub_Backend/.env."
           : failed
             ? `Image generation failed: ${resultMessage || "Backend provider returned an error."}`
             : hasImage
-              ? `${mode} finished. The preview and result list updated.`
+              ? (usedLocalFallback
+                  ? (resultMessage || `${mode} finished using local fallback preview because OpenAI was unavailable.`)
+                  : `${mode} finished. The preview and result list updated.`)
               : `${mode} finished, but no image was returned. Check model settings and backend logs.`,
       );
     } catch (error) {
@@ -785,7 +789,7 @@ export default function EVzoneAICreatorHub() {
                       ? "Add OPENAI_API_KEY to enable paid OpenAI image generation."
                       : result.result?.failed
                         ? (typeof result.result?.message === "string" ? result.result.message : "Image generation failed on backend provider.")
-                        : result.prompt}
+                        : (typeof result.result?.message === "string" ? result.result.message : result.prompt)}
                   </small>
                 </div>
                 <div className="result-actions">
