@@ -1526,11 +1526,13 @@ const styles = `
 
   .evz-project-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     gap: 14px;
+    min-width: 0;
   }
 
   .evz-project-card {
+    min-width: 0;
     overflow: hidden;
     border-radius: 26px;
     border: 1px solid rgba(9,18,15,0.08);
@@ -1634,6 +1636,7 @@ const styles = `
 
   .evz-project-card-body {
     padding: 0 16px 16px;
+    min-width: 0;
   }
 
   .evz-project-card-head,
@@ -1649,6 +1652,7 @@ const styles = `
   .evz-card-footer,
   .evz-quality-row {
     justify-content: space-between;
+    min-width: 0;
   }
 
   .evz-project-card h3 {
@@ -1656,6 +1660,7 @@ const styles = `
     font-size: 1.12rem;
     line-height: 1.1;
     letter-spacing: -0.035em;
+    overflow-wrap: anywhere;
   }
 
   .evz-project-card p {
@@ -1808,14 +1813,20 @@ const styles = `
 
   .evz-card-actions {
     margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .evz-card-actions button {
+    min-width: 0;
     padding: 9px 10px;
     border: 1px solid var(--ev-border);
     color: #253530;
     background: var(--evz-card-solid);
     font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .evz-card-actions button.send {
@@ -2179,7 +2190,6 @@ const styles = `
   @media (max-width: 1420px) {
     .evz-workspace { grid-template-columns: 1fr; }
     .evz-detail-drawer { position: relative; top: 0; }
-    .evz-project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .evz-filterbar { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .evz-search { grid-column: 1 / -1; }
   }
@@ -2194,7 +2204,6 @@ const styles = `
     .evz-hero { grid-template-columns: 1fr; }
     .evz-alerts,
     .evz-metric-row,
-    .evz-project-grid,
     .evz-collections {
       grid-template-columns: 1fr;
     }
@@ -2217,6 +2226,40 @@ const styles = `
     .evz-note div,
     .evz-asset-row {
       flex-direction: column;
+    }
+    .evz-project-card {
+      border-radius: 20px;
+    }
+    .evz-thumb {
+      height: 128px;
+      margin: 10px;
+      padding: 12px;
+      border-radius: 16px;
+    }
+    .evz-thumb strong {
+      font-size: 1.25rem;
+      letter-spacing: 0;
+    }
+    .evz-project-card-body {
+      padding: 0 12px 12px;
+    }
+    .evz-project-card-head,
+    .evz-quality-row {
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .evz-project-card-head {
+      flex-wrap: wrap;
+    }
+    .evz-project-card p {
+      min-height: 0;
+    }
+    .evz-card-actions {
+      grid-template-columns: 1fr;
+    }
+    .evz-card-actions button {
+      min-height: 40px;
+      width: 100%;
     }
   }
 `;

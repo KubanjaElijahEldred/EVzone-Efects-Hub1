@@ -66,6 +66,10 @@ type ImageBounds = {
 };
 
 type PreviewToolPanel = 'upload' | 'effects' | 'face' | 'adjust' | 'music' | 'actions';
+type CameraActionOptions = {
+  manual?: boolean;
+  silent?: boolean;
+};
 
 const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1280;
@@ -337,9 +341,12 @@ export function LiveEffectComposer({
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const musicInputRef = React.useRef<HTMLInputElement | null>(null);
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const composerRef = React.useRef<HTMLElement | null>(null);
   const imageUrlRef = React.useRef<string | null>(null);
   const musicUrlRef = React.useRef<string | null>(null);
   const cameraStreamRef = React.useRef<MediaStream | null>(null);
+  const cameraStartingRef = React.useRef(false);
+  const manualCameraStopRef = React.useRef(false);
 
   const [imageElement, setImageElement] = React.useState<HTMLImageElement | null>(null);
   const [imageName, setImageName] = React.useState('');
@@ -553,26 +560,38 @@ export function LiveEffectComposer({
     [notify],
   );
 
-  const stopCamera = React.useCallback(() => {
+  const stopCamera = React.useCallback((options: CameraActionOptions = {}) => {
+    if (options.manual) manualCameraStopRef.current = true;
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     cameraStreamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraActive(false);
-    notify('Camera closed.');
+    if (!options.silent) notify('Camera closed.');
   }, [notify]);
 
   const startCamera = React.useCallback(
-    async (facing: 'user' | 'environment' = cameraFacing) => {
+    async (facing: 'user' | 'environment' = cameraFacing, options: CameraActionOptions = {}) => {
       if (!navigator.mediaDevices?.getUserMedia) {
         notify('Camera access is not available in this browser.');
         return;
       }
+      if (cameraStartingRef.current) return;
+      cameraStartingRef.current = true;
+      if (options.manual) manualCameraStopRef.current = false;
       try {
         cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false,
+          });
+        }
         cameraStreamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -584,6 +603,8 @@ export function LiveEffectComposer({
         notify('Camera is live. Modes, filters, crop, zoom, and adjust tools are ready.');
       } catch {
         notify('Camera permission was blocked or no camera was found.');
+      } finally {
+        cameraStartingRef.current = false;
       }
     },
     [cameraFacing, notify],
@@ -591,8 +612,41 @@ export function LiveEffectComposer({
 
   const flipCamera = React.useCallback(() => {
     const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
-    void startCamera(nextFacing);
+    void startCamera(nextFacing, { manual: true });
   }, [cameraFacing, startCamera]);
+
+  React.useEffect(() => {
+    const node = composerRef.current;
+    if (!node) return undefined;
+
+    const startWhenVisible = () => {
+      if (!cameraStreamRef.current && !manualCameraStopRef.current) {
+        void startCamera(cameraFacing);
+      }
+    };
+
+    if (!('IntersectionObserver' in window)) {
+      startWhenVisible();
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) startWhenVisible();
+      },
+      { threshold: 0.35 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [cameraFacing, startCamera]);
+
+  React.useEffect(() => {
+    const activeFilterButton = composerRef.current?.querySelector<HTMLButtonElement>(
+      `[data-camera-filter-id="${activeCameraFilterId}"]`,
+    );
+    activeFilterButton?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [activeCameraFilterId]);
 
   const captureFrame = React.useCallback(() => {
     const canvas = canvasRef.current;
@@ -719,7 +773,7 @@ export function LiveEffectComposer({
   );
 
   return (
-    <section className={`evz-live-composer ${compact ? 'compact' : ''}`} aria-label="Live image effect composer">
+    <section ref={composerRef} className={`evz-live-composer ${compact ? 'compact' : ''}`} aria-label="Live image effect composer">
       <style>{composerStyles}</style>
       <div className="evz-live-composer-head">
         <div>
@@ -752,7 +806,7 @@ export function LiveEffectComposer({
                 aria-label={cameraActive ? 'Close camera' : 'Clear preview'}
                 onClick={() => {
                   if (cameraActive) {
-                    stopCamera();
+                    stopCamera({ manual: true });
                   } else {
                     setImageElement(null);
                     setImageName('');
@@ -906,10 +960,10 @@ export function LiveEffectComposer({
                       Upload image
                       <input type="file" accept="image/*" onChange={handleImageUpload} />
                     </label>
-                    <button type="button" className="evz-preview-action primary" onClick={() => void startCamera()}>
+                    <button type="button" className="evz-preview-action primary" onClick={() => void startCamera(cameraFacing, { manual: true })}>
                       Open camera
                     </button>
-                    <button type="button" className="evz-preview-action" onClick={stopCamera} disabled={!cameraActive}>
+                    <button type="button" className="evz-preview-action" onClick={() => stopCamera({ manual: true })} disabled={!cameraActive}>
                       Close
                     </button>
                   </div>
@@ -1111,6 +1165,7 @@ export function LiveEffectComposer({
                   <button
                     key={filter.id}
                     type="button"
+                    data-camera-filter-id={filter.id}
                     className={filter.id === activeCameraFilter.id ? 'active' : ''}
                     onClick={() => {
                       setActiveCameraFilterId(filter.id);
@@ -1147,7 +1202,7 @@ export function LiveEffectComposer({
               type="button"
               className="evz-post-action"
               aria-label={cameraActive ? 'Close camera' : 'Open camera'}
-              onClick={cameraActive ? stopCamera : () => void startCamera()}
+              onClick={cameraActive ? () => stopCamera({ manual: true }) : () => void startCamera(cameraFacing, { manual: true })}
             >
               {cameraActive ? 'Close' : 'Open'}
             </button>
@@ -1736,96 +1791,110 @@ const composerStyles = `
   z-index: 11;
   left: 0;
   right: 0;
-  bottom: 60px;
+  bottom: 68px;
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
   justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 34px;
+  padding: 0 calc(50% - 34px);
+  scroll-padding-inline: calc(50% - 34px);
   touch-action: pan-x;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
 
 .evz-filter-filmstrip button {
-  width: 78px;
+  flex: 0 0 68px;
+  width: 68px;
+  height: 68px;
+  padding: 0;
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, .82);
   display: grid;
   justify-items: center;
+  align-items: center;
   gap: 0;
+  cursor: pointer;
 }
 
 .evz-lens-avatar {
-  width: 72px;
-  height: 72px;
+  width: 60px;
+  height: 60px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, .2);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, .42);
+  border: 2px solid rgba(255, 255, 255, .26);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, .48);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
 .evz-lens-avatar-vivid {
   background:
-    radial-gradient(circle at 56% 38%, #f3c7a5 0 23%, transparent 24%),
-    radial-gradient(circle at 48% 23%, #1f2937 0 21%, transparent 22%),
-    linear-gradient(130deg, #f472b6, #f97316 52%, #7c3aed);
+    radial-gradient(circle at 53% 39%, #e6bb84 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 25%, #25170d 0 18%, transparent 19%),
+    linear-gradient(115deg, rgba(120, 53, 15, .5), transparent 34%),
+    linear-gradient(135deg, #654321, #d99a45 48%, #21150f);
 }
 
 .evz-lens-avatar-original {
   background:
-    radial-gradient(circle at 56% 38%, #f7dfcc 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 23%, #2f3540 0 21%, transparent 22%),
-    linear-gradient(130deg, #ffffff, #d6dbe6 52%, #9ca3af);
+    radial-gradient(circle at 55% 39%, #f1c89d 0 20%, transparent 21%),
+    radial-gradient(circle at 47% 24%, #222936 0 18%, transparent 19%),
+    linear-gradient(140deg, #eff4fa, #b8c1cd 52%, #e7edf4);
 }
 
 .evz-lens-avatar-natural {
   background:
-    radial-gradient(circle at 56% 38%, #f7d9bd 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 22%, #111827 0 21%, transparent 22%),
-    linear-gradient(130deg, #67e8f9, #38bdf8 52%, #22c55e);
+    radial-gradient(circle at 55% 40%, #deb184 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 25%, #111827 0 18%, transparent 19%),
+    radial-gradient(circle at 72% 24%, rgba(255,255,255,.34), transparent 20%),
+    linear-gradient(140deg, #128f7a, #40d3d5 54%, #0b3558);
 }
 
 .evz-lens-avatar-dramatic {
   background:
-    radial-gradient(circle at 56% 39%, #d5b08d 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 23%, #09090b 0 21%, transparent 22%),
-    linear-gradient(130deg, #111827, #334155 56%, #6b7280);
+    radial-gradient(circle at 55% 39%, #c49a72 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 24%, #09090b 0 18%, transparent 19%),
+    linear-gradient(135deg, #111827, #243244 56%, #0f172a);
 }
 
 .evz-lens-avatar-warm {
   background:
-    radial-gradient(circle at 56% 39%, #d7a37f 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 23%, #09090b 0 21%, transparent 22%),
-    linear-gradient(130deg, #fbbf24, #fb7185 56%, #fb923c);
+    radial-gradient(circle at 55% 40%, #d59a73 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 24%, #17110d 0 18%, transparent 19%),
+    radial-gradient(circle at 24% 22%, rgba(255,255,255,.26), transparent 23%),
+    linear-gradient(135deg, #d97706, #fb7185 56%, #fb923c);
 }
 
 .evz-lens-avatar-cool {
   background:
-    radial-gradient(circle at 56% 39%, #c58f66 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 24%, #0f172a 0 21%, transparent 22%),
-    linear-gradient(130deg, #818cf8, #60a5fa 52%, #1e3a8a);
+    radial-gradient(circle at 55% 39%, #c68f67 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 24%, #0f172a 0 18%, transparent 19%),
+    linear-gradient(135deg, #111827, #334155 52%, #60a5fa);
 }
 
 .evz-lens-avatar-noir {
   background:
-    radial-gradient(circle at 56% 39%, #b89472 0 24%, transparent 25%),
-    radial-gradient(circle at 47% 24%, #000000 0 21%, transparent 22%),
-    linear-gradient(130deg, #f8fafc, #6b7280 52%, #0f172a);
+    radial-gradient(circle at 55% 39%, #b89472 0 19%, transparent 20%),
+    radial-gradient(circle at 47% 24%, #000000 0 18%, transparent 19%),
+    linear-gradient(135deg, #f8fafc, #6b7280 52%, #0f172a);
 }
 
 .evz-filter-filmstrip button.active > span {
-  box-shadow: 0 0 0 3px #fff;
+  border-color: rgba(255, 255, 255, .72);
+  transform: scale(1.04);
+  box-shadow: 0 0 0 4px #fff, 0 12px 26px rgba(0, 0, 0, .55);
 }
 
 .evz-camera-controls {
   position: absolute;
-  z-index: 10;
+  z-index: 12;
   left: 16px;
   right: 16px;
-  bottom: 56px;
+  bottom: 52px;
   display: grid;
   grid-template-columns: 64px 1fr 64px;
   align-items: center;
@@ -1835,19 +1904,19 @@ const composerStyles = `
 }
 
 .evz-shutter {
-  width: 116px;
-  height: 116px;
+  width: 86px;
+  height: 86px;
   border-radius: 999px;
-  border: 6px solid #fff;
+  border: 5px solid #fff;
   pointer-events: auto;
-  background: #ff2d55;
-  box-shadow: inset 0 0 0 4px #050505, 0 0 0 2px rgba(255, 255, 255, .34);
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .32), 0 12px 26px rgba(0, 0, 0, .42);
   cursor: pointer;
 }
 
 .evz-shutter.record {
-  background: #ff2d55;
-  box-shadow: inset 0 0 0 4px #050505, 0 0 0 1px rgba(255, 255, 255, .34);
+  background: transparent;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .32), 0 12px 26px rgba(0, 0, 0, .42);
 }
 
 .evz-capture-spacer {
@@ -2361,29 +2430,32 @@ const composerStyles = `
 
   .evz-filter-filmstrip {
     justify-content: flex-start;
-    bottom: 54px;
-    gap: 8px;
-    padding: 0 14px;
+    bottom: 58px;
+    gap: 10px;
+    padding: 0 calc(50% - 31px);
+    scroll-padding-inline: calc(50% - 31px);
   }
 
   .evz-filter-filmstrip button {
-    width: 66px;
+    flex-basis: 62px;
+    width: 62px;
+    height: 62px;
   }
 
   .evz-lens-avatar {
-    width: 58px;
-    height: 58px;
+    width: 54px;
+    height: 54px;
   }
 
   .evz-camera-controls {
     grid-template-columns: 48px 1fr 48px;
-    bottom: 48px;
+    bottom: 45px;
   }
 
   .evz-shutter {
-    width: 94px;
-    height: 94px;
-    border-width: 5px;
+    width: 78px;
+    height: 78px;
+    border-width: 4px;
   }
 
   .evz-capture-spacer {
