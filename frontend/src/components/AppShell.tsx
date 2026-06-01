@@ -344,7 +344,7 @@ export function AppShell() {
               px: 1.25,
               pt: 1,
               pb: 'calc(env(safe-area-inset-bottom) + 8px)',
-              borderRadius: '24px 24px 0 0',
+              borderRadius: 0,
               border: '1px solid rgba(255,255,255,0.76)',
               borderBottom: 0,
               bgcolor: 'rgba(255,255,255,0.88)',
