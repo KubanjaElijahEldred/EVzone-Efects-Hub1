@@ -83,13 +83,6 @@ const effectPresets: EffectPreset[] = [
     filter: 'none',
   },
   {
-    id: 'pink-heart',
-    name: 'Pink Heart',
-    label: 'Heart glow',
-    colors: ['#ff4f94', '#ff75a8', '#ffb3ca', '#f77f00'],
-    filter: 'brightness(1.08) contrast(1.08) saturate(1.24)',
-  },
-  {
     id: 'dreamy-glow',
     name: 'Dreamy Glow',
     label: 'Soft beauty',
@@ -127,7 +120,7 @@ const creatorModeStrip: Array<{ mode: CameraMode; label: string }> = [
   { mode: 'PORTRAIT', label: 'TEXT' },
 ];
 
-const captureStripFilterIds = ['vivid', 'natural', 'warm', 'cool'] as const;
+const captureStripFilterIds = ['original', 'vivid', 'natural', 'dramatic', 'warm', 'cool', 'noir'] as const;
 
 const previewToolPanelLabels: Record<PreviewToolPanel, string> = {
   upload: 'Upload & Camera',
@@ -272,7 +265,8 @@ function drawEffectOverlay(
   vignette: number,
   pulse: number,
 ) {
-  if (preset.id === 'clean-camera') {
+  const isHeartPreset = preset.id.toLowerCase().includes('heart') || preset.name.toLowerCase().includes('heart');
+  if (preset.id === 'clean-camera' || isHeartPreset) {
     return;
   }
 
@@ -290,17 +284,6 @@ function drawEffectOverlay(
   ctx.save();
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-  if (preset.id === 'pink-heart') {
-    ctx.font = '700 240px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = hexToRgba(color, 0.88);
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 28 + pulse * 18;
-    ctx.strokeText('♡', CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.44);
-  }
 
   if (preset.id === 'dreamy-glow') {
     ctx.strokeStyle = hexToRgba(color, 0.62);
@@ -1887,14 +1870,14 @@ const composerStyles = `
 
 .evz-mode-strip {
   position: absolute;
-  z-index: 9;
+  z-index: 11;
   left: 0;
   right: 0;
   bottom: 192px;
   display: flex;
   gap: 26px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 42px;
@@ -1929,14 +1912,14 @@ const composerStyles = `
 
 .evz-filter-filmstrip {
   position: absolute;
-  z-index: 9;
+  z-index: 11;
   left: 0;
   right: 0;
   bottom: 60px;
   display: flex;
   gap: 12px;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 34px;
@@ -1970,11 +1953,25 @@ const composerStyles = `
     linear-gradient(130deg, #f472b6, #f97316 52%, #7c3aed);
 }
 
+.evz-lens-avatar-original {
+  background:
+    radial-gradient(circle at 56% 38%, #f7dfcc 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 23%, #2f3540 0 21%, transparent 22%),
+    linear-gradient(130deg, #ffffff, #d6dbe6 52%, #9ca3af);
+}
+
 .evz-lens-avatar-natural {
   background:
     radial-gradient(circle at 56% 38%, #f7d9bd 0 24%, transparent 25%),
     radial-gradient(circle at 47% 22%, #111827 0 21%, transparent 22%),
     linear-gradient(130deg, #67e8f9, #38bdf8 52%, #22c55e);
+}
+
+.evz-lens-avatar-dramatic {
+  background:
+    radial-gradient(circle at 56% 39%, #d5b08d 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 23%, #09090b 0 21%, transparent 22%),
+    linear-gradient(130deg, #111827, #334155 56%, #6b7280);
 }
 
 .evz-lens-avatar-warm {
@@ -1991,13 +1988,20 @@ const composerStyles = `
     linear-gradient(130deg, #818cf8, #60a5fa 52%, #1e3a8a);
 }
 
+.evz-lens-avatar-noir {
+  background:
+    radial-gradient(circle at 56% 39%, #b89472 0 24%, transparent 25%),
+    radial-gradient(circle at 47% 24%, #000000 0 21%, transparent 22%),
+    linear-gradient(130deg, #f8fafc, #6b7280 52%, #0f172a);
+}
+
 .evz-filter-filmstrip button.active > span {
   box-shadow: 0 0 0 3px #fff;
 }
 
 .evz-camera-controls {
   position: absolute;
-  z-index: 9;
+  z-index: 10;
   left: 16px;
   right: 16px;
   bottom: 56px;
@@ -2006,6 +2010,7 @@ const composerStyles = `
   align-items: center;
   justify-items: center;
   gap: 12px;
+  pointer-events: none;
 }
 
 .evz-shutter {
@@ -2013,6 +2018,7 @@ const composerStyles = `
   height: 116px;
   border-radius: 999px;
   border: 6px solid #fff;
+  pointer-events: auto;
   background: #ff2d55;
   box-shadow: inset 0 0 0 4px #050505, 0 0 0 2px rgba(255, 255, 255, .34);
   cursor: pointer;

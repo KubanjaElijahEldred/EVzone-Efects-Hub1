@@ -44,27 +44,6 @@ const creators = [
 ] as const;
 const effects = [
   {
-    "id": "pink-heart",
-    "title": "Pink Heart",
-    "posts": "12.4M posts",
-    "videos": "1.6M videos",
-    "views": "325K",
-    "imageKey": "effect1",
-    "previewKey": "pinkPreview",
-    "accent": "#ff75a8",
-    "symbol": "\u2661",
-    "description": "Put a glowing pink heart around you with live face-lock, soft bloom, and creator-safe beauty lighting. \ud83d\udc95",
-    "tags": [
-      "Today",
-      "Trending",
-      "Beauty"
-    ],
-    "runtime": "2.8 MB",
-    "pipeline": "Face lock",
-    "target": "60 fps",
-    "gradient": "linear-gradient(135deg,#45101d,#ff4f94 55%,#ffd0df)"
-  },
-  {
     "id": "dreamy-glow",
     "title": "Dreamy Glow",
     "posts": "8.7M posts",
@@ -533,7 +512,7 @@ export default function EvzonePremiumStudio(): React.ReactElement {
   const [activeFilter, setActiveFilter] = React.useState<FilterMode>("Today");
   const [search, setSearch] = React.useState("");
   const [toast, setToast] = React.useState("");
-  const [liked, setLiked] = React.useState<Set<string>>(() => new Set(["pink-heart"]));
+  const [liked, setLiked] = React.useState<Set<string>>(() => new Set());
   const [followed, setFollowed] = React.useState<Set<string>>(() => new Set(["evzone"]));
 
   const visibleEffects = React.useMemo(() => {

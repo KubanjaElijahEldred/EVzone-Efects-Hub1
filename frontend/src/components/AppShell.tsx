@@ -52,6 +52,11 @@ import { toast } from 'sonner';
 
 const DRAWER_WIDTH = 326;
 const SIDEBAR_CONTENT_GAP = 0;
+const MOBILE_NAV_HEIGHT = 84;
+const MOBILE_NAV_SIDE_MARGIN = 12;
+const MOBILE_NAV_BOTTOM_OFFSET = 10;
+const MOBILE_NAV_BOTTOM = `calc(env(safe-area-inset-bottom) + ${MOBILE_NAV_BOTTOM_OFFSET}px)`;
+const MOBILE_NAV_RESERVE_SPACE = `calc(${MOBILE_NAV_HEIGHT}px + env(safe-area-inset-bottom) + ${MOBILE_NAV_BOTTOM_OFFSET + 14}px)`;
 const HIDDEN_NAV_ROUTE_IDS = new Set(['new-project', 'recovery-diagnostics', 'maintenance', 'missing']);
 const ROUTE_ICON_BY_ID: Record<string, typeof HomeRoundedIcon> = {
   home: HomeRoundedIcon,
@@ -324,25 +329,41 @@ export function AppShell() {
   );
 
   return (
-    <Box minHeight="100vh" width="100%" overflow="clip" className="evzone-shell-gradient">
+    <Box minHeight={{ xs: '100svh', lg: '100vh' }} width="100%" overflow="clip" className="evzone-shell-gradient">
       {!isDesktop ? (
         <>
           <Box
             sx={{
               position: 'fixed',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 72,
+              bottom: MOBILE_NAV_BOTTOM,
+              left: MOBILE_NAV_SIDE_MARGIN,
+              right: MOBILE_NAV_SIDE_MARGIN,
+              height: MOBILE_NAV_HEIGHT,
               zIndex: (muiTheme) => muiTheme.zIndex.drawer + 2,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-around',
-              bgcolor: isDark ? 'rgba(10,18,30,0.92)' : 'rgba(255,255,255,0.96)',
-              backdropFilter: 'blur(20px)',
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              pb: 'env(safe-area-inset-bottom)',
+              justifyContent: 'space-between',
+              px: 1,
+              borderRadius: '24px 24px 20px 20px',
+              border: '1px solid rgba(255,255,255,0.76)',
+              bgcolor: 'rgba(255,255,255,0.76)',
+              backgroundImage:
+                'linear-gradient(140deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.84) 60%, rgba(247,127,0,0.09) 100%)',
+              backdropFilter: 'blur(24px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(160%)',
+              boxShadow: '0 22px 40px rgba(15,23,42,0.18), 0 -1px 0 rgba(3,205,140,0.20) inset',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 18,
+                right: 18,
+                height: 2,
+                borderRadius: 999,
+                background: 'linear-gradient(90deg, rgba(3,205,140,0.45), rgba(247,127,0,0.36))',
+                pointerEvents: 'none',
+              },
             }}
           >
             {[
@@ -357,30 +378,45 @@ export function AppShell() {
               return (
                 <Box
                   key={item.id}
+                  component="button"
+                  type="button"
                   onClick={() => navigate(item.path)}
                   sx={{
+                    width: '20%',
+                    minWidth: 0,
+                    border: 0,
+                    p: 0,
+                    m: 0,
+                    background: 'transparent',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: 0.5,
+                    justifyContent: 'center',
+                    gap: 0.4,
                     cursor: 'pointer',
-                    color: isActive ? 'primary.main' : 'text.secondary',
+                    color: isActive ? '#03cd8c' : '#667085',
                     transition: 'all 0.2s ease',
+                    WebkitTapHighlightColor: 'transparent',
                     '&:active': { transform: 'scale(0.92)' },
                   }}
                 >
                   <Box
                     sx={{
-                      p: 1,
-                      borderRadius: '14px',
-                      bgcolor: isActive ? 'rgba(3,205,140,0.12)' : 'transparent',
+                      width: 38,
+                      height: 38,
+                      borderRadius: '12px',
+                      border: isActive ? '1px solid rgba(3,205,140,0.42)' : '1px solid rgba(148,163,184,0.26)',
+                      bgcolor: isActive ? 'rgba(3,205,140,0.14)' : 'rgba(255,255,255,0.44)',
                       display: 'grid',
                       placeItems: 'center',
+                      boxShadow: isActive
+                        ? '0 10px 20px rgba(3,205,140,0.24), 0 0 0 1px rgba(247,127,0,0.20)'
+                        : '0 8px 14px rgba(15,23,42,0.08)',
                     }}
                   >
                     <Icon sx={{ fontSize: 24 }} />
                   </Box>
-                  <Typography variant="caption" fontWeight={isActive ? 900 : 700} fontSize={10}>
+                  <Typography variant="caption" fontWeight={isActive ? 900 : 700} fontSize={10} letterSpacing={0}>
                     {item.label}
                   </Typography>
                 </Box>
@@ -435,12 +471,15 @@ export function AppShell() {
         sx={{
           ml: { lg: `${DRAWER_WIDTH + SIDEBAR_CONTENT_GAP}px` },
           mt: { xs: 0, lg: 0 },
-          mb: { xs: 9, lg: 0 },
-          minHeight: '100vh',
+          mb: 0,
+          pb: { xs: MOBILE_NAV_RESERVE_SPACE, lg: 0 },
+          minHeight: { xs: '100svh', lg: '100vh' },
           width: { lg: `calc(100% - ${DRAWER_WIDTH + SIDEBAR_CONTENT_GAP}px)` },
           maxWidth: { lg: `calc(100% - ${DRAWER_WIDTH + SIDEBAR_CONTENT_GAP}px)` },
           overflowX: 'clip',
           position: 'relative',
+          scrollPaddingBottom: { xs: MOBILE_NAV_RESERVE_SPACE, lg: 0 },
+          overscrollBehaviorY: { xs: 'contain', lg: 'auto' },
         }}
       >
         <Box className="evzone-route-content">
